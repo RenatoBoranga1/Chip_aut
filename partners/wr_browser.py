@@ -10,12 +10,14 @@ from playwright.sync_api import sync_playwright
 
 from partners.access import AccessDeniedError, check_status, is_catalog_response, robots_policy
 from partners.models import CatalogPage
-from partners.wr_parser import BRANDS_PATH, CATALOG_URL, LIST_PATH, ORIGIN, page_numbers, parse_brands
+from partners.wr_parser import BRANDS_PATH, CATALOG_URL, LIST_PATH, ORIGIN, next_page_number, parse_brands
 
 LOGGER = logging.getLogger(__name__)
 
 
 class WRBrowserSource:
+    method = "Playwright + HTML XHR público + BeautifulSoup"
+
     def __init__(self, channel=None, delay=2.0, timeout_ms=30000, max_pages=100, evidence_dir=None):
         if delay < 2 or timeout_ms <= 0 or max_pages < 1:
             raise ValueError("Delay mínimo 2s, timeout e limite de páginas positivos")
@@ -94,10 +96,10 @@ class WRBrowserSource:
                         yield CatalogPage(scope, number, response.url, body, timestamp)
                         # Wait for the corresponding HTML to reach the DOM before clicking.
                         page.wait_for_function("() => !document.querySelector('.estoque-lista img[src*=loader]')")
-                        following = [n for n in page_numbers(body) if n > number]
-                        if not following:
+                        following_number = next_page_number(body, number)
+                        if following_number is None:
                             break
-                        number = min(following)
+                        number = following_number
                         time.sleep(delay)
 
                         def next_page():

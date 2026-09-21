@@ -5,6 +5,7 @@ from pathlib import Path
 
 from partners.registry import create_collector
 from partners.wr_browser import WRBrowserSource
+from partners.wr_http import WRHTTPSource
 from services.collection_report import write_collection_report
 from services.collection_service import collect_partners
 
@@ -15,6 +16,7 @@ def main():
     parser.add_argument("--db", type=Path, default=Path("data/coverage.sqlite3"))
     parser.add_argument("--reports", type=Path, default=Path("reports/collections"))
     parser.add_argument("--channel", choices=["msedge", "chrome"], default=None)
+    parser.add_argument("--transport", choices=["http", "browser"], default="http")
     parser.add_argument("--delay", type=float, default=2.0)
     parser.add_argument("--timeout", type=int, default=30000)
     parser.add_argument("--max-pages", type=int, default=100)
@@ -22,7 +24,12 @@ def main():
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     try:
-        source = WRBrowserSource(args.channel, args.delay, args.timeout, args.max_pages, args.reports / "evidence")
+        options = dict(
+            delay=args.delay, timeout_ms=args.timeout, max_pages=args.max_pages, evidence_dir=args.reports / "evidence"
+        )
+        source = (
+            WRHTTPSource(**options) if args.transport == "http" else WRBrowserSource(channel=args.channel, **options)
+        )
         collector = create_collector(
             args.partner, source=source, cache_file=args.db.parent / "wr-cache.json", cache_ttl=0 if args.fresh else 300
         )

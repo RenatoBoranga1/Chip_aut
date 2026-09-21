@@ -17,7 +17,17 @@ def check_status(status, text=""):
     if status in {401, 403, 429}:
         raise AccessDeniedError(f"Acesso interrompido: HTTP {status}; sem contorno ou retry")
     lower = text.lower()
-    if any(marker in lower for marker in ("verify you are human", "cf-chl-", "access denied", "captcha challenge")):
+    if any(
+        marker in lower
+        for marker in (
+            "verify you are human",
+            "cf-chl-",
+            "access denied",
+            "captcha challenge",
+            "checking your browser",
+            "<title>just a moment",
+        )
+    ):
         raise AccessDeniedError("Desafio/bloqueio detectado; coleta interrompida")
     if status >= 400:
         raise RuntimeError(f"HTTP {status}")
@@ -37,10 +47,15 @@ def robots_policy(origin, targets, timeout=25):
             parser.parse(response.text.splitlines())
             if any(not parser.can_fetch(USER_AGENT, target) for target in targets):
                 raise AccessDeniedError("robots.txt não permite os caminhos necessários")
+            rate = parser.request_rate(USER_AGENT) or parser.request_rate("*")
             return {
                 "url": url,
                 "status": response.status_code,
-                "delay": max(2.0, parser.crawl_delay(USER_AGENT) or parser.crawl_delay("*") or 0),
+                "delay": max(
+                    2.0,
+                    parser.crawl_delay(USER_AGENT) or parser.crawl_delay("*") or 0,
+                    rate.seconds / rate.requests if rate else 0,
+                ),
                 "policy": response.text,
             }
         except (requests.Timeout, requests.ConnectionError):

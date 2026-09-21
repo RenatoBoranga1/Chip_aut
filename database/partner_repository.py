@@ -1,7 +1,9 @@
+import json
 from dataclasses import asdict
 from datetime import datetime, timezone
 
 from database.repository import SQLiteRepository, encode
+from partners.models import CollectionResult, PartnerMotorcycle
 
 
 class PartnerRepository(SQLiteRepository):
@@ -23,7 +25,7 @@ class PartnerRepository(SQLiteRepository):
                     result.partner,
                     datetime.now(timezone.utc).isoformat(),
                     status,
-                    encode({k: v for k, v in asdict(result).items() if k != "advertisements"}),
+                    encode({k: v for k, v in asdict(result).items() if k != "advertisements" or result.cached}),
                 ),
             )
             collection_id = cursor.lastrowid
@@ -49,3 +51,29 @@ class PartnerRepository(SQLiteRepository):
                     (collection_id, ad.partner, ad.external_id, encode(asdict(ad))),
                 )
         return collection_id
+
+    def get_collection(self, collection_id):
+        row = self.connection.execute(
+            "SELECT summary_json FROM partner_collections WHERE id=?", (collection_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError("Coleta não encontrada")
+        payload = json.loads(row[0])
+        ads = payload.pop("advertisements", None)
+        if ads is None:
+            ads = [
+                json.loads(r[0])
+                for r in self.connection.execute(
+                    "SELECT payload_json FROM partner_observations WHERE collection_id=? ORDER BY external_id",
+                    (collection_id,),
+                )
+            ]
+        return CollectionResult(**payload, advertisements=[PartnerMotorcycle(**a) for a in ads])
+
+    def save_coverage(self, collection_id, import_id, report):
+        with self.connection:
+            cursor = self.connection.execute(
+                "INSERT INTO coverage_runs(collection_id,import_id,created_at,report_json) VALUES (?,?,?,?)",
+                (collection_id, import_id, datetime.now(timezone.utc).isoformat(), encode(report)),
+            )
+        return cursor.lastrowid

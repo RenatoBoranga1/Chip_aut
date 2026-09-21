@@ -1,10 +1,64 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1 e 2 — Base Scanner e Matching.** Parser, normalização,
+**Entrega atual: Milestones 1, 2 e pipeline do Milestone 3.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
-funcionam com a base real. Coletor WR Motos, dashboard, ações de desenvolvimento
-e scheduler são etapas seguintes.
+funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
+preliminar. Dashboard, ações de desenvolvimento e scheduler permanecem futuros.
+
+## WR Motos — coleta, histórico e cobertura
+
+```powershell
+python -m app.import_base data/RESUMO_MDL.xlsx
+python -m app.collect --fresh --max-pages 30 --delay 2
+python -m app.coverage 1
+```
+
+Substitua `1` pelo ID retornado pela coleta. Todos aceitam `--db` e `--reports`.
+`app.coverage` pode ser repetido sobre uma coleta salva, sem acessar o site. Usa a
+versão vigente da base e salva os IDs de matching, a versão consultada e o anúncio
+completo em `coverage_runs`, `coverage.json` e `COBERTURA.md`.
+
+O transporte padrão é HTTP direto nos endpoints HTML XHR públicos do próprio
+catálogo. Antes do acesso, verifica robots.txt; respeita Crawl-delay/Request-rate
+e intervalo mínimo de dois segundos. 401/403/429, desafios anti-bot e
+redirecionamentos interrompem a coleta sem contorno ou fallback automático.
+O transporte existente continua disponível com `--transport browser --channel msedge`.
+Playwright exige um navegador instalado; o modo HTTP não precisa dele.
+
+Os filtros `zero_km=0` e `zero_km=1` são percorridos separadamente. Completude exige
+os dois filtros. Paginação valida sequência, página retornada, conteúdo, avanço
+de external_ids e limite global configurável. Resposta vazia é erro; só uma
+mensagem explícita de catálogo vazio encerra um filtro sem anúncios. Erros
+preservam observações parciais e impedem marcar anúncios antigos como ausentes.
+O catálogo pode mudar durante a paginação; as verificações detectam repetições,
+mas não fornecem snapshot atômico do servidor.
+
+Deduplicação usa exclusivamente `veiculo=...`. Mesmo modelo com IDs diferentes
+permanece separado. Preço é texto decimal em BRL para evitar perda monetária por
+float; quilometragem é inteira. `zero_km` registra o filtro de origem, não uma
+inferência por quilometragem. IDs presentes nos dois filtros recebem `null` e
+aviso de conflito. Versão não estruturada permanece integralmente no título/modelo.
+Parser extrai dados; `partners/normalization.py` gera apenas a chave de agrupamento.
+O matching aplica a política da versão importada da base, incluindo a memória
+de revisão manual já existente. Nenhuma regra de fuzzy foi adicionada ao parser.
+
+`partner_collections` mantém os runs; `collection_runs` é uma view compatível.
+`partner_observations` guarda cada snapshot; `partner_advertisements` mantém
+first/last_seen, verificações e ausência na última coleta completa. A ausência
+nunca é inferida de falha parcial. Cache válido dura 300s por padrão e não altera
+last_seen, verificações ou desaparecimentos. `--fresh` ignora o cache.
+Caches anteriores ao novo esquema são descartados de forma segura.
+
+Cobertura separa não encontradas, prováveis, revisão e os cinco status do scanner.
+O tipo existente `AMBIGUOUS` entra na seção REVISAR, mantendo o resultado original.
+Confirmações manuais existentes são respeitadas. Status dos candidatos fuzzy é
+exibido como sugestão; não confirma suporte do anúncio. A cobertura parcial é
+explicitamente rotulada e não deve ser tratada como inventário completo.
+
+HTML bruto, cache, banco e relatórios reais ficam em `reports/` ou `data/`,
+ignorados pelo Git. A planilha já versionada permanece intacta. Fixtures novas
+são sintéticas; nenhuma nova página real deve ser adicionada ao Git.
 
 ## Começar no Windows
 
@@ -287,7 +341,7 @@ amostras; a lista completa está em `motorcycles.json` e no CSV.
 python -m pytest -q
 python -m ruff check .
 python -m ruff format --check .
-python -m compileall -q app scanner_base matching database services
+python -m compileall -q app scanner_base matching database services partners
 python -c "import app.import_base, app.match, app.review_match, matching.matcher, database.matching_repository"
 ```
 
@@ -315,13 +369,12 @@ docker run --rm -v "${PWD}/data:/app/data" -v "${PWD}/reports:/app/reports" --en
 
 ## Próximos milestones
 
-3. Inspecionar robots.txt, termos, HTML e tráfego público da WR Motos; só então
-   implementar `PartnerCollector` e registro de adaptadores independentes do comparador.
-4. Comparação scanner/parceiros com estados de atenção.
+3. Validar periodicamente o pipeline WR Motos entregue nesta branch.
+4. Evoluir a comparação/cobertura preliminar a partir da revisão dos casos reais.
 5. Streamlit: oportunidades, base scanner, parceiros e decisões persistidas.
 6. Histórico de anúncios, first/last_seen, verificações independentes do dashboard,
    agendamento diário às 07:00 e alertas.
 
-Playwright será instalado no Milestone 3 se a inspeção não revelar uma fonte pública
-estruturada adequada. Não há `app.monitor` nem dashboard executável ainda, e nenhum
-agendamento ou acesso à WR Motos foi ativado neste milestone.
+Não há `app.monitor`, dashboard ou agendamento automático nesta entrega.
+As validações históricas abaixo não incluem a coleta adicionada no Milestone 3;
+consulte `VALIDACAO_MILESTONE_3.md` para os resultados desta etapa.

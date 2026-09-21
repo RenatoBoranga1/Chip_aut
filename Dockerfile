@@ -5,6 +5,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app app
 COPY scanner_base scanner_base
 COPY matching matching
+COPY partners partners
 COPY services services
 COPY database database
 COPY config config

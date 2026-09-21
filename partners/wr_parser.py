@@ -4,7 +4,6 @@ from urllib.parse import parse_qs, urljoin, urlparse
 from bs4 import BeautifulSoup
 
 from partners.models import PartnerMotorcycle
-from scanner_base.normalizer import normalize_manufacturer, normalize_text, normalize_year, normalized_key
 
 ORIGIN = "https://www.wrmotos.com.br"
 CATALOG_URL = ORIGIN + "/v1/estoque/"
@@ -36,8 +35,25 @@ def page_numbers(html):
     )
 
 
-def interpret_card(card, brands, timestamp, aliases):
-    link = next((a for a in card.select("a[href]") if "veiculo=" in a["href"]), None)
+def next_page_number(html, current):
+    soup = BeautifulSoup(html, "html.parser")
+    selected = soup.select_one(".paginacao .atual")
+    if selected and selected.get_text(strip=True) != str(current):
+        raise CatalogChangedError("Página retornada não corresponde à solicitada")
+    following = [n for n in page_numbers(html) if n > current]
+    if following:
+        if min(following) != current + 1:
+            raise CatalogChangedError("Paginação saltou uma página")
+        return min(following)
+    for a in soup.select(".paginacao a"):
+        if re.search(r"pr[óo]xima|next", a.get_text(), re.I):
+            raise CatalogChangedError("Controle de próxima página não avança")
+    return None
+
+
+def interpret_card(card, brands, timestamp):
+    links = ([card] if card.name == "a" and card.get("href") else []) + card.select("a[href]")
+    link = next((a for a in links if "veiculo=" in a["href"]), None)
     if link is None:
         raise ValueError("Anúncio sem ID/URL")
     parsed_url = urlparse(urljoin(ORIGIN, link["href"]))
@@ -49,25 +65,34 @@ def interpret_card(card, brands, timestamp, aliases):
     img = card.find("img", alt=True)
     raw_name = title.get_text(" ", strip=True) if title else img.get("alt", "").strip() if img else ""
     raw_text = card.get_text(" ", strip=True)
-    manufacturer, model, year, key = None, None, None, None
+    manufacturer, model, year = None, None, None
     warnings = []
     for brand in brands:
-        if normalize_text(raw_name).startswith(normalize_text(brand) + " "):
-            manufacturer = normalize_manufacturer(brand, aliases)
-            model = raw_name[len(brand) :].strip()
+        prefix = re.match(re.escape(brand) + r"\s+", raw_name, re.I)
+        if prefix:
+            manufacturer = raw_name[: len(brand)]
+            model = raw_name[prefix.end() :].strip()
             break
     if not manufacturer or not model:
         warnings.append("MARCA_OU_MODELO_NAO_INTERPRETADO")
     match = re.search(r"\bAno\s*:\s*(\d{4}(?:\s*/\s*\d{2,4})?)\b", raw_text, re.I)
     if match:
-        try:
-            year = normalize_year(match.group(1))
-        except ValueError:
+        if re.fullmatch(r"\d{4}", match.group(1)) and 1885 <= int(match.group(1)) <= 2100:
+            year = int(match.group(1))
+        else:
             warnings.append("ANO_AMBIGUO")
     else:
         warnings.append("ANO_AUSENTE")
-    if manufacturer and model and year:
-        key = normalized_key(manufacturer, model, year)
+    price_field = card.select_one(".preco")
+    # Promotional amounts inside headings (e.g. R$ 4.000 below FIPE) are not prices.
+    detail_text = " ".join(
+        str(t) for t in card.find_all(string=True) if not any(re.fullmatch(r"h[1-6]", p.name or "") for p in t.parents)
+    )
+    price_text = price_field.get_text(" ", strip=True) if price_field else detail_text
+    price_match = re.search(r"R\$\s*([\d.]+(?:,\d{2})?)(?!\d)", price_text)
+    mileage_match = re.search(r"\bKM\s*:\s*([\d.]+)\b", raw_text, re.I)
+    price = price_match.group(1).replace(".", "").replace(",", ".") if price_match else None
+    mileage = int(mileage_match.group(1).replace(".", "")) if mileage_match else None
     return PartnerMotorcycle(
         "wr_motos",
         external_id,
@@ -79,12 +104,16 @@ def interpret_card(card, brands, timestamp, aliases):
         source_url,
         timestamp,
         raw_text,
-        key,
+        None,
         warnings,
+        price=price,
+        mileage=mileage,
+        raw_data={"year": match.group(1) if match else None, "card_html": str(card)},
     )
 
 
-def parse_catalog_page(html, brands, timestamp, aliases):
+def parse_catalog_page(html, brands, timestamp, aliases=None):
+    """Extract source fields only. aliases is retained for call compatibility."""
     soup = BeautifulSoup(html, "html.parser")
     cards = soup.select(".div-veiculo")
     if not cards:
@@ -97,16 +126,16 @@ def parse_catalog_page(html, brands, timestamp, aliases):
                     found[id(block)] = block
                     break
                 block = block.parent
-        cards = list(found.values())
+        cards = [block for block in found.values() if not any(id(parent) in found for parent in block.parents)]
     if not cards:
-        text = normalize_text(soup.get_text(" ", strip=True))
-        if re.search(r"(?:NENHUM|NAO (?:FOI|FORAM)) (?:VEICULO|RESULTADO|REGISTRO)", text):
+        text = soup.get_text(" ", strip=True).upper()
+        if re.search(r"(?:NENHUM|N[ÃA]O (?:FOI|FORAM)) (?:VE[ÍI]CULO|RESULTADO|REGISTRO)", text):
             return [], [], 0
         raise CatalogChangedError("Resposta sem anúncios e sem indicação explícita de catálogo vazio")
     advertisements, errors = [], []
     for position, card in enumerate(cards, 1):
         try:
-            advertisements.append(interpret_card(card, brands, timestamp, aliases))
+            advertisements.append(interpret_card(card, brands, timestamp))
         except ValueError as exc:
             errors.append(
                 {

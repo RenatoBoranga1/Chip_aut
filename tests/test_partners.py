@@ -7,6 +7,7 @@ import pytest
 from database.partner_repository import PartnerRepository
 from partners.access import AccessDeniedError, check_status, robots_policy
 from partners.models import CatalogPage, CollectionResult
+from partners.normalization import normalize_advertisement
 from partners.wr_motos import WRMotosCollector
 from partners.wr_parser import CatalogChangedError, page_numbers, parse_brands, parse_catalog_page
 from services.collection_service import collect_partners
@@ -29,7 +30,8 @@ def card(identifier="1", title="BMW F 900 R", year="2025", css="div-veiculo"):
 
 
 def parse(html):
-    return parse_catalog_page(html, brands(), STAMP, {"HARLEY-DAVIDSON": "HARLEY DAVIDSON"})
+    ads, errors, count = parse_catalog_page(html, brands(), STAMP)
+    return [normalize_advertisement(a, {"HARLEY-DAVIDSON": "HARLEY DAVIDSON"}) for a in ads], errors, count
 
 
 class FixtureSource:
@@ -43,6 +45,7 @@ class FixtureSource:
             yield CatalogPage("0", number, f"https://www.wrmotos.com.br/?page={number}", html, STAMP)
         if self.fail:
             raise TimeoutError("Fixture: timeout na página seguinte")
+        yield CatalogPage("1", 1, "https://www.wrmotos.com.br/?page=1&zero_km=1", "Nenhum veículo encontrado", STAMP)
 
 
 def test_real_snapshot_normal_page(html):
@@ -126,6 +129,7 @@ def test_robots_disallow_and_404(monkeypatch):
         status_code = 200
         text = "User-agent: *\nDisallow: /v1/\n"
         is_redirect = False
+
     monkeypatch.setattr("partners.access.requests.get", lambda *a, **kw: Response())
     with pytest.raises(AccessDeniedError):
         robots_policy("https://www.wrmotos.com.br", ["https://www.wrmotos.com.br/v1/estoque/"])
@@ -141,20 +145,38 @@ def test_seen_missing_failed_and_cache_history(tmp_path):
         later.advertisements = later.advertisements[:1]
         later.advertisements[0].collected_at = "2026-09-22T12:00:00+00:00"
         repo.save_collection(later)
-        row = repo.connection.execute("SELECT first_seen_at,last_seen_at,verification_count FROM partner_advertisements WHERE external_id='1'").fetchone()
+        row = repo.connection.execute(
+            "SELECT first_seen_at,last_seen_at,verification_count FROM partner_advertisements WHERE external_id='1'"
+        ).fetchone()
         assert row == (STAMP, "2026-09-22T12:00:00+00:00", 2)
-        assert repo.connection.execute("SELECT not_seen_in_latest_collection FROM partner_advertisements WHERE external_id='2'").fetchone()[0] == 1
+        assert (
+            repo.connection.execute(
+                "SELECT not_seen_in_latest_collection FROM partner_advertisements WHERE external_id='2'"
+            ).fetchone()[0]
+            == 1
+        )
         repo.save_collection(CollectionResult("wr_motos", STAMP, errors=[{"code": "TimeoutError"}]))
-        assert repo.connection.execute("SELECT not_seen_in_latest_collection FROM partner_advertisements WHERE external_id='1'").fetchone()[0] == 0
+        assert (
+            repo.connection.execute(
+                "SELECT not_seen_in_latest_collection FROM partner_advertisements WHERE external_id='1'"
+            ).fetchone()[0]
+            == 0
+        )
         later.cached = True
         repo.save_collection(later)
-        assert repo.connection.execute("SELECT verification_count FROM partner_advertisements WHERE external_id='1'").fetchone()[0] == 2
+        assert (
+            repo.connection.execute(
+                "SELECT verification_count FROM partner_advertisements WHERE external_id='1'"
+            ).fetchone()[0]
+            == 2
+        )
         assert repo.connection.execute("SELECT COUNT(*) FROM partner_observations").fetchone()[0] == 3
 
 
 def test_cache_does_not_access_site(tmp_path):
-    from datetime import datetime, timezone
     from dataclasses import asdict
+    from datetime import datetime, timezone
+
     result = WRMotosCollector(FixtureSource([card()])).collect_motorcycles()
     result.collected_at = datetime.now(timezone.utc).isoformat()
     cache = tmp_path / "cache.json"
@@ -167,5 +189,8 @@ def test_partner_failure_does_not_stop_others(tmp_path):
     class Failed:
         def collect_motorcycles(self):
             raise RuntimeError("Fixture failure")
-    collected = collect_partners({"broken": Failed(), "wr_motos": WRMotosCollector(FixtureSource([card()]))}, tmp_path / "db.sqlite3")
+
+    collected = collect_partners(
+        {"broken": Failed(), "wr_motos": WRMotosCollector(FixtureSource([card()]))}, tmp_path / "db.sqlite3"
+    )
     assert not collected[0][1].complete and collected[1][1].complete

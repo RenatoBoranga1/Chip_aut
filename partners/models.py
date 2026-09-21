@@ -15,6 +15,10 @@ class PartnerMotorcycle:
     raw_text: str
     normalized_key: str | None
     parse_warnings: list[str] = field(default_factory=list)
+    price: str | None = None
+    mileage: int | None = None
+    zero_km: bool | None = None
+    raw_data: dict = field(default_factory=dict)
 
 
 @dataclass

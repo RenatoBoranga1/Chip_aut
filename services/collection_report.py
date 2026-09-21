@@ -21,6 +21,10 @@ def write_collection_report(collection_id, result, destination):
         "manufacturers": dict(sorted(Counter(a.manufacturer or "NAO_INTERPRETADA" for a in ads).items())),
         "with_year": sum(a.year is not None for a in ads),
         "without_year": sum(a.year is None for a in ads),
+        "zero_km": sum(a.zero_km is True for a in ads),
+        "used": sum(a.zero_km is False for a in ads),
+        "unknown_zero_km": sum(a.zero_km is None for a in ads),
+        "with_parse_warnings": sum(bool(a.parse_warnings) for a in ads),
         "unparsed_advertisements": len(unknown),
         "unparsed_cards_without_id": sum(e["code"] == "UNPARSED_CARD" for e in result.errors),
         "duration_seconds": result.duration_seconds,
@@ -42,6 +46,9 @@ def write_collection_report(collection_id, result, destination):
             "source_url",
             "normalized_key",
             "collected_at",
+            "price",
+            "mileage",
+            "zero_km",
         ]
         writer = csv.DictWriter(file, fieldnames=columns, delimiter=";")
         writer.writeheader()
@@ -73,6 +80,9 @@ def write_collection_report(collection_id, result, destination):
         f"Páginas/filtros visitados: {len(result.pages)}. Ocorrências duplicadas por ID: "
         f"{result.metadata.get('duplicate_occurrences', 0)}. Erros: {len(result.errors)}.",
         "",
+        f"0 km: {summary['zero_km']}. Usados: {summary['used']}. Indefinidos: {summary['unknown_zero_km']}.",
+        "Contagens por filtro: " + json.dumps(result.metadata.get("scope_counts", {}), ensure_ascii=False),
+        "",
         "## Exemplos reais",
         "",
         "| ID | Montadora | Modelo completo | Ano | Anúncio |",
@@ -88,17 +98,17 @@ def write_collection_report(collection_id, result, destination):
         "## Procedência e limites",
         "",
         "Fonte: [catálogo público WR Motos](https://www.wrmotos.com.br/v1/estoque/). "
-        "Lista extraída das respostas HTML XHR utilizadas pelo próprio frontend, via Playwright.",
+        "Lista extraída das respostas HTML XHR utilizadas pelo próprio frontend; método registrado acima.",
         "",
         "Cada ID representa um anúncio; unidades do mesmo modelo permanecem distintas. "
         "A chave agrupa montadora, nome completo (incluindo versão quando escrita no título) e ano. "
         "O site não fornece versão em campo separado: version permanece null. "
         "Textos promocionais também são preservados, podendo fragmentar grupos até revisão futura.",
         "",
-        "Ambos os filtros 0 KM foram percorridos pelos controles do site. Não se presume que os filtros "
+        "A completude exige os dois filtros 0 KM. Não se presume que os filtros "
         "funcionem corretamente no servidor; repetições são deduplicadas pelo ID, com contagem registrada.",
         "",
-        "Nenhum matching com a base scanner foi executado nesta coleta. Cache não atualiza last_seen. "
+        "Matching/cobertura são executados separadamente por app.coverage. Cache não atualiza last_seen. "
         "Coletas incompletas não marcam anúncios ausentes. Snapshots e first/last_seen ficam no SQLite.",
         "",
         "## Erros",
