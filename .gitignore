@@ -1,0 +1,34 @@
+﻿.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Dados reais
+data/
+*.xlsx
+*.xls
+
+# Bancos locais
+*.db
+*.sqlite
+*.sqlite3
+
+# Segredos
+.env
+.env.*
+!.env.example
+
+# Coletas e temporarios
+raw_html/
+screenshots/
+tmp/
+logs/
+*.log
+
+# IDE / sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+reports/

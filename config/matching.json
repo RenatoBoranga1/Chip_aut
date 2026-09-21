@@ -1,0 +1,17 @@
+{
+  "policy_version": "2.0-conservative",
+  "candidate_threshold": 55.0,
+  "probable_threshold": 88.0,
+  "ambiguity_margin": 8.0,
+  "max_candidates": 5,
+  "weights": {"token_sort": 0.65, "token_set": 0.25, "compact": 0.10},
+  "version_penalty": 18.0,
+  "protected_tokens": [
+    "R", "RR", "RS", "S", "GS", "GSA", "GT", "GTS", "GTL", "RT", "XR",
+    "XT", "X", "N", "ABS", "CBS", "DCT", "ES", "SE", "SP", "EX",
+    "ADVENTURE", "ADV", "TOURER", "TOURING", "SPORT", "SPORTS", "PREMIUM",
+    "PLUS", "RALLY", "RALLYE", "PRO", "TRIPLE", "BLACK", "LIMITED", "SPECIAL",
+    "EXECUTIVE", "CLASSIC", "CUSTOM", "SCOOTER", "+", "/"
+  ],
+  "notes": "Scores são heurísticos, não probabilidades calibradas. Apenas igualdade normalizada confirma automaticamente. Todo fuzzy exige revisão; diferenças de tokens e números permanecem auditáveis."
+}

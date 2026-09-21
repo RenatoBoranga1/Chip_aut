@@ -1,0 +1,16 @@
+[project]
+name = "moto-coverage-monitor"
+version = "0.2.0"
+description = "Base scanner e matching auditável — Milestones 1 e 2"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

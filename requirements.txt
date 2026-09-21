@@ -1,0 +1,5 @@
+openpyxl==3.1.5
+rapidfuzz==3.14.6
+beautifulsoup4==4.15.0
+requests==2.34.2
+playwright==1.63.0

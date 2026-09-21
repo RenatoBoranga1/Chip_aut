@@ -1,0 +1,18 @@
+{
+  "policy_version": "1-conservative",
+  "manufacturer_aliases": {
+    "SEA-DOO": "SEADOO",
+    "HARLEY-DAVIDSON": "HARLEY DAVIDSON"
+  },
+  "release_status": {
+    "SIM": "SUPORTADO",
+    "NAO": "SEM_SUPORTE",
+    "NAO LANCAR": "SEM_SUPORTE",
+    "ANALISE": "EM_ANALISE"
+  },
+  "situation_status": {
+    "OK": "SUPORTADO",
+    "ANALISE": "EM_ANALISE"
+  },
+  "notes": "V10–V16, MC e observações livres permanecem SEM_STATUS até validação da semântica. SUPORTADO refere-se somente aos sistemas registrados, não a todos os sistemas possíveis do veículo."
+}
