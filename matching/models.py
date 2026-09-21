@@ -34,3 +34,4 @@ class MatchResult:
     reasons: list[str]
     candidates: list[Candidate]
     candidates_total: int = 0
+    identity_evidence: dict = field(default_factory=dict)

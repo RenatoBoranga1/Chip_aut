@@ -1,6 +1,8 @@
 from collections import defaultdict
+from dataclasses import replace
 
 from matching.fuzzy_matcher import combined_model, compare_features, features
+from matching.identity import IdentityPolicy
 from matching.models import Candidate, MatchResult, MotorcycleQuery
 from matching.rules import MatchingRules
 from scanner_base.models import Motorcycle
@@ -16,17 +18,41 @@ class Matcher:
         self.rules = rules
         self.aliases = aliases
         self.memory = memory or {}
+        self.identity = IdentityPolicy(rules.identity_policy)
         self.exact = {}
+        self.canonical = defaultdict(list)
+        self.target_evidence = {}
         self.groups = defaultdict(list)
         for motorcycle in motorcycles:
             if motorcycle.key in self.exact:
                 raise ValueError(f"Identidade duplicada na base de matching: {motorcycle.key}")
             self.exact[motorcycle.key] = motorcycle
-            self.groups[motorcycle.manufacturer, motorcycle.year].append(
-                (motorcycle, features(motorcycle.model, motorcycle.manufacturer))
-            )
+            manufacturer, manufacturer_steps = self.identity.manufacturer(motorcycle.manufacturer)
+            model, steps = self.identity.model(manufacturer, motorcycle.model)
+            self.target_evidence[motorcycle.key] = manufacturer_steps + steps
+            self.canonical[normalized_key(manufacturer, model, motorcycle.year)].append(motorcycle)
+            self.groups[manufacturer, motorcycle.year].append((motorcycle, features(model, manufacturer)))
 
     def match(self, query: MotorcycleQuery) -> MatchResult:
+        result = self._match(query)
+        if result.normalized_key is None:
+            return result
+        manufacturer, manufacturer_steps = self.identity.manufacturer(
+            normalize_manufacturer(query.manufacturer, self.aliases)
+        )
+        model, steps = self.identity.model(manufacturer, combined_model(query.model, query.version))
+        return replace(
+            result,
+            identity_evidence={
+                "policy_version": self.rules.identity_policy.get("version"),
+                "canonical_key": normalized_key(manufacturer, model, normalize_year(query.year)),
+                "memory_key": result.normalized_key,
+                "query_steps": manufacturer_steps + steps,
+                "candidate_steps": {c.scanner_key: self.target_evidence[c.scanner_key] for c in result.candidates},
+            },
+        )
+
+    def _match(self, query: MotorcycleQuery) -> MatchResult:
         try:
             if not isinstance(query.manufacturer, str) or not query.manufacturer.strip():
                 raise ValueError("Montadora obrigatória")
@@ -42,11 +68,21 @@ class Matcher:
                 raise ValueError("Modelo sem letras ou números identificáveis")
             year = normalize_year(query.year)
             key = normalized_key(manufacturer, model, year)
+            manufacturer, _ = self.identity.manufacturer(manufacturer)
+            model, _ = self.identity.model(manufacturer, model)
+            canonical_key = normalized_key(manufacturer, model, year)
         except ValueError as exc:
             return MatchResult(query, None, "REVISAR", 0.0, None, None, True, [str(exc)], [])
         decisions = self.memory.get(key, {})
         rejected = {k for k, v in decisions.items() if v == "REJEITAR"}
-        confirmed = [self.exact[k] for k, v in decisions.items() if v == "CONFIRMAR" and k in self.exact]
+        confirmed = [
+            self.exact[k]
+            for k, v in decisions.items()
+            if v == "CONFIRMAR"
+            and k in self.exact
+            and self.exact[k].year == year
+            and self.identity.manufacturer(self.exact[k].manufacturer)[0] == manufacturer
+        ]
         if len(confirmed) == 1:
             m = confirmed[0]
             candidate = Candidate(
@@ -81,7 +117,34 @@ class Matcher:
                 len(choices),
             )
         query_features = features(model, manufacturer)
-        if (motorcycle := self.exact.get(key)) and key not in rejected:
+        exact_choices = [m for m in self.canonical.get(canonical_key, []) if m.key not in rejected]
+        if len(exact_choices) > 1:
+            choices = [
+                Candidate(
+                    m.key,
+                    m.manufacturer,
+                    m.model,
+                    m.year,
+                    m.status,
+                    100.0,
+                    ["Colisão: várias identidades da base têm a mesma forma canônica"],
+                )
+                for m in sorted(exact_choices, key=lambda m: m.key)
+            ]
+            return MatchResult(
+                query,
+                key,
+                "AMBIGUOUS",
+                100.0,
+                None,
+                None,
+                True,
+                ["Equivalência configurada não autoriza escolher entre identidades distintas"],
+                choices[: max(2, self.rules.max_candidates)],
+                len(choices),
+            )
+        if exact_choices:
+            motorcycle = exact_choices[0]
             candidate = Candidate(
                 motorcycle.key,
                 motorcycle.manufacturer,
@@ -89,14 +152,18 @@ class Matcher:
                 motorcycle.year,
                 motorcycle.status,
                 100.0,
-                ["Igualdade da chave normalizada"],
+                [
+                    "Igualdade da chave normalizada após equivalências explícitas"
+                    if self.rules.identity_policy
+                    else "Igualdade da chave normalizada"
+                ],
             )
             # A catalog name may omit the trim even when a base-model key exists.
             extensions = []
             for other, target in self.groups.get((manufacturer, year), []):
                 if (
                     other.key not in rejected
-                    and other.key != key
+                    and other.key != motorcycle.key
                     and len(target.tokens) > len(query_features.tokens)
                     and target.tokens[: len(query_features.tokens)] == query_features.tokens
                 ):

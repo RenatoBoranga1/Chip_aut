@@ -1,5 +1,6 @@
 {
-  "policy_version": "2.0-conservative",
+  "policy_version": "3.1-conservative",
+  "identity_policy_file": "identity.json",
   "candidate_threshold": 55.0,
   "probable_threshold": 88.0,
   "ambiguity_margin": 8.0,

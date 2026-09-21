@@ -1,0 +1,25 @@
+{
+  "version": "3.1-conservative-1",
+  "manufacturer_aliases": [],
+  "model_aliases": [
+    {"id": "yamaha-fazer-token-order", "manufacturer": "YAMAHA", "from": "FZ25 FAZER ABS", "to": "FAZER FZ25 ABS", "evidence": "WR 442749, 2019: mesmos tokens e ABS; a base usa FAZER FZ25 ABS. Regra de modelo completo, não ordenação global."},
+    {"id": "ducati-streetfighter-spacing", "manufacturer": "DUCATI", "from": "STREETFIGHTER V4 S", "to": "STREET FIGHTER V4 S", "evidence": "WR 431023, 2022: base STREET FIGHTER V4S. Apenas separação de palavras; V4 e S preservados."}
+  ],
+  "token_aliases": [
+    {"id": "ducati-scrambler-spelling", "manufacturer": "DUCATI", "model_prefix": "SCAMBLER", "from": "SCAMBLER", "to": "SCRAMBLER", "evidence": "WR 402308: SCRAMBLER FULL THROTTLE; base 2018 SCAMBLER FULL THROTTLE. Corrige grafia na visão de matching, sem editar a base."},
+    {"id": "bmw-adventure-rally-spelling", "manufacturer": "BMW", "model_prefix": "R 1250 GS ADVENTURE PREMIUM", "from": "RALLY", "to": "RALLYE", "evidence": "WR 434855, 2024: RALLYE; base R 1250GS ADVENTURE PREMIUM RALLY. Todos os qualificadores são preservados."}
+  ],
+  "known_equivalences": [
+    {"id": "bmw-40-years-translation", "manufacturer": "BMW", "from": "R 1250 GS ADVENTURE PREMIUM 40 ANOS", "to": "R 1250 GS ADVENTURE PREMIUM 40 YEARS", "evidence": "WR 440808, 2022: 40 ANOS versus 40 YEARS na base. Tradução literal da mesma edição; não remover 40 nem PREMIUM."}
+  ],
+  "noise_rules": [
+    {"id": "promotion-fipe-suffix", "kind": "suffix", "pattern": "\\s+PROMOCAO R\\$\\s*\\d+(?:\\.\\d{3})*(?:,\\d{2})? ABAIXO DA FIPE$", "evidence": "WR 422106: oferta monetária após o nome S 1000 R. Somente a frase completa ancorada no final."},
+    {"id": "promotion-star-suffix", "kind": "suffix", "pattern": "\\s+\\*{1,2}\\s*PROMOCAO\\s*\\*{1,2}$", "evidence": "WR 399290, 402920, 414709, 421926, 428542 e outros: rótulo promocional delimitado no final. Nenhum texto arbitrário entre asteriscos é removido."},
+    {"id": "repeated-manufacturer-prefix", "kind": "manufacturer_prefix", "evidence": "WR 445743: fabricante BMW e modelo BMW R 18. Remove apenas uma repetição literal no início."},
+    {"id": "repeated-dct-description", "kind": "suffix", "manufacturer": "HONDA", "requires_suffix": "DCT", "pattern": "\\s+\\*VERSAO DCT\\*$", "evidence": "WR 425668: CRF 1100L AFRICA TWIN DCT *VERSÃO DCT*. Só remove o comentário quando o modelo restante já termina em DCT."}
+  ],
+  "protected_tokens": ["STANDARD", "EDITION", "ED", "ESPECIAL", "EXCLUSIVE", "M", "CARBON", "PACKAGE", "DARK", "CROMO", "XC", "XCX", "XRX", "XRXL", "ASA", "TROPHY", "CONNECTED", "STENCIL", "WHITE", "MID", "FLSTC"],
+  "protected_tokens_evidence": "WR 443074/444946: M/CARBON/PACKAGE; 444162: DARK; 437056: XC/XRX; 439585: ASA; 446201: TROPHY; 439584: STENCIL WHITE/MID; 433866: FLSTC. Preservar versões e códigos não confirmados.",
+  "diagnostics": {"near_similarity": 75.0, "max_candidates": 10, "evidence": "Veto conservador à lista de ausências: recuperar grafias/versões próximas antes de alegar lacuna de ano. Não altera matching ou suporte."},
+  "notes": "Sem aliases de ABS, Touring, Adventure, cilindrada omitida ou equivalência entre anos. NOVA/IMPECAVEL/UNICO DONO/BAIXA KM não habilitados sem exemplo verificável. Aliases de fabricante já existentes continuam na política da importação. Pesos fuzzy 0.65/0.25/0.10 mantidos: não existe conjunto rotulado para calibrá-los com segurança."
+}

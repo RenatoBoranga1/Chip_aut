@@ -71,7 +71,7 @@ def compare_features(
         blockers.append("INFORMACAO_NUMERICA_AUSENTE")
     if Counter(query.numbers) != Counter(target.numbers):
         blockers.append("NUMEROS_DE_MODELO_OU_VERSAO_DIFERENTES")
-    protected = set(rules.protected_tokens)
+    protected = set(rules.protected_tokens) | set(rules.identity_policy.get("protected_tokens", []))
     if (set(query.tokens) & protected) != (set(target.tokens) & protected):
         blockers.append("VERSAO_DIFERENTE_OU_INCOMPLETA")
         score -= rules.version_penalty

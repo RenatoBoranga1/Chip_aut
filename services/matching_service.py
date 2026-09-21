@@ -22,7 +22,7 @@ def match_motorcycle(query: MotorcycleQuery, database: Path, rules_path: Path = 
         matcher = Matcher(motorcycles, aliases, rules, repository.load_memory())
         result = matcher.match(query)
         policy = {
-            "algorithm_version": "2.1",
+            "algorithm_version": "3.1",
             "rapidfuzz_version": rapidfuzz.__version__,
             "matching_rules": rules.to_dict(),
             "manufacturer_aliases": aliases,
@@ -54,7 +54,7 @@ def match_many(queries, database: Path, rules_path: Path = DEFAULT_MATCHING_RULE
         matcher = Matcher(motorcycles, scanner_policy["manufacturer_aliases"], rules, memory)
         results = matcher.match_many(queries)
         policy = {
-            "algorithm_version": "2.1",
+            "algorithm_version": "3.1",
             "rapidfuzz_version": rapidfuzz.__version__,
             "matching_rules": rules.to_dict(),
             "manufacturer_aliases": scanner_policy["manufacturer_aliases"],

@@ -1,6 +1,6 @@
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from scanner_base.normalizer import normalize_text
@@ -19,8 +19,12 @@ class MatchingRules:
     version_penalty: float
     protected_tokens: list[str]
     notes: str
+    identity_policy: dict = field(default_factory=dict)
 
     def __post_init__(self):
+        from matching.identity import validate_policy
+
+        validate_policy(self.identity_policy)
         numbers = [self.candidate_threshold, self.probable_threshold, self.ambiguity_margin, self.version_penalty]
         if any(type(n) not in (int, float) or not math.isfinite(n) for n in numbers):
             raise ValueError("Limiares precisam ser números finitos")
@@ -45,5 +49,9 @@ class MatchingRules:
 
 def load_matching_rules(path: Path = DEFAULT_MATCHING_RULES) -> MatchingRules:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if "identity_policy_file" in data:
+        data["identity_policy"] = json.loads(
+            (Path(path).parent / data.pop("identity_policy_file")).read_text(encoding="utf-8")
+        )
     data["protected_tokens"] = [normalize_text(t) for t in data["protected_tokens"]]
     return MatchingRules(**data)

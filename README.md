@@ -8,6 +8,60 @@ preliminar. Dashboard, ações de desenvolvimento e scheduler permanecem futuros
 
 ## WR Motos — coleta, histórico e cobertura
 
+### Milestone 3.1 — refinamento offline
+
+```powershell
+python -m app.refine 2 --baseline-coverage 1
+```
+
+Use o ID da coleta persistida e o ID de `coverage_runs` anterior às alterações.
+`--db`, `--reports` e `--rules` são opcionais. O comando recusa comparação com
+outra coleta, outra versão da base ou observações alteradas. Não acessa o site.
+Mantém o relatório anterior no banco e cria novos runs de matching/cobertura.
+`reports/refinement/inventory.json` contém os 158 anúncios da execução de referência,
+tokens originais/canônicos, candidatos, scores, diferenças, rejeições e causas.
+`REFINAMENTO.md` resume antes/depois, casos resolvidos, ambiguidades e lacunas.
+As quantidades são calculadas a cada execução, não codificadas no programa.
+
+`config/identity.json` separa aliases de fabricante, modelo, tokens, equivalências
+conhecidas e ruído. Cada regra tem ID, escopo e evidência. Os aliases de fabricante
+da importação continuam sendo usados; nenhum novo foi habilitado sem evidência.
+O arquivo é incorporado integralmente à política salva em cada matching, não
+apenas referenciado por caminho. A planilha e suas chaves permanecem intactas.
+Equivalências criam uma visão canônica para comparação, mantendo a chave original
+da moto encontrada e um registro de transformações em `identity_evidence`.
+Colisões de aliases geram AMBIGUOUS; não escolhem arbitrariamente uma identidade.
+
+Somente sufixos promocionais completos e delimitados são removidos. `NOVA`,
+`IMPECAVEL`, observações de leilão e alterações mecânicas não são ignorados.
+`ABS`, `ADVENTURE`, `TOURING`, `R/RR/S/GT`, edições e códigos de versão continuam
+significativos. 40 ANOS/40 YEARS preserva a edição, não remove seu número.
+Ano continua sendo filtro estrito; não há interpolação ou faixa de anos presumida.
+
+O relatório mede o efeito individual de cada regra retirando-a e repetindo o
+matching. Regras conjuntas podem explicar o mesmo anúncio, portanto as contagens
+por regra não devem ser somadas. A sensibilidade a três configurações de pesos
+é registrada; pesos originais foram mantidos por falta de rótulos humanos que
+permitam medir precisão. Fuzzy permanece sujeito a revisão e não confirma suporte.
+
+`probable_absence.json` separa PROVAVELMENTE_NAO_SUPORTADA_NA_BASE: identidade
+interpretada, montadora ausente ou modelo conhecido em outros anos sem candidato
+plausível no ano anunciado. O limiar diagnóstico é apenas um veto conservador a
+essa lista. A categoria descreve provável lacuna na versão consultada da planilha;
+não substitui o status SEM_SUPORTE nem prova incapacidade técnica do scanner.
+Os outros não encontrados permanecem inconclusivos. Os filtros 0 km continuam
+indefinidos, com o alerta original preservado.
+
+A memória existente (`app.review_match remember`) continua auditável e explícita.
+Sua chave usa fabricante normalizado + modelo completo/versão + ano, antes dos
+novos aliases e da remoção de ruído. Reutiliza diferenças já equivalentes de
+espaços/hífens, mas não amplia decisões humanas automaticamente para títulos
+reescritos por regras novas. Mudança de ano, fabricante ou versão impede herança;
+o alvo precisa continuar presente na base corrente. Nenhuma revisão humana é
+fabricada pelo refinamento. Veja `VALIDACAO_MILESTONE_3_1.md`.
+
+### Coleta e cobertura
+
 ```powershell
 python -m app.import_base data/RESUMO_MDL.xlsx
 python -m app.collect --fresh --max-pages 30 --delay 2
