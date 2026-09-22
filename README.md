@@ -1,10 +1,10 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1 a 3.2, incluindo fila operacional de revisão.** Parser, normalização,
+**Entrega atual: Milestones 1 a 4.1, incluindo painel operacional em português.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
 funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
-preliminar. Dashboard, ações de desenvolvimento e scheduler permanecem futuros.
+preliminar e painel Streamlit. Agendamento e ações de desenvolvimento permanecem futuros.
 
 ## WR Motos — coleta, histórico e cobertura
 
@@ -66,7 +66,7 @@ esse modo não aplica decisões operacionais nem retrocede a fila atual. `app.re
 também usa o modo de auditoria automática.
 
 Veja `RESULTADOS_MILESTONE_3_2.md` para arquitetura, transações, testes, resultados
-da coleta e limites. Nenhum dashboard, scheduler ou notificação foi adicionado.
+da coleta e limites. Na etapa 3.2 não foi adicionado painel, agendamento ou notificação. O painel foi entregue no Milestone 4.
 
 ### Milestone 3.1 — refinamento offline
 
@@ -481,6 +481,20 @@ Para usar o matching na imagem, substitua o entrypoint:
 docker run --rm -v "${PWD}/data:/app/data" -v "${PWD}/reports:/app/reports" --entrypoint python moto-coverage-monitor -m app.match --manufacturer BMW --model "F900 R" --year 2025
 ```
 
+## Interface em português — Milestone 4.1
+
+Interface do sistema padronizada em português. Valores técnicos internos podem
+permanecer em inglês por compatibilidade, mas são traduzidos na apresentação.
+Rótulos, estados, prioridades, ações e mensagens compartilhadas ficam em
+`ui/textos.py`. Novos valores devem receber uma tradução nesse módulo; valores
+não reconhecidos geram aviso no log e um texto neutro em português na tela.
+Os filtros exibem rótulos traduzidos e continuam enviando os valores internos.
+Nomes de modelos, chaves da base, textos originais e notas humanas são preservados.
+
+As tabelas usam apresentação sem menus técnicos de grade; paginação e ordenação
+continuam nos controles do painel. Consulte
+[RESULTADOS_MILESTONE_4_1.md](RESULTADOS_MILESTONE_4_1.md) para inventário e validação.
+
 ## Dashboard operacional — Milestone 4
 
 Na raiz do repositório, com o ambiente virtual ativo:
@@ -515,11 +529,11 @@ O menu contém Visão geral, Fila de Revisão, Estoque WR Motos, Sem suporte,
 Suporte parcial, Possíveis novas motos, Base do Scanner, Busca global e Histórico.
 As listagens têm paginação e filtros; a busca ignora diferenças de caixa e acentos.
 O scanner mostra o snapshot atual e seus sistemas, sem permitir edição.
-O histórico apresenta coletas, ocorrências e decisões com reviewer, justificativa
+O histórico apresenta coletas, ocorrências e decisões com revisor, justificativa
 e estados anterior/posterior quando registrados pela migração 007.
 
 Para revisar, filtre a fila, abra um item e confira anúncio, resultado automático,
-candidatos, memória humana e cobertura efetiva. Selecione a ação e informe reviewer
+candidatos, memória humana e cobertura efetiva. Selecione a ação e informe revisor
 e justificativa. Confirmar ou rejeitar exige escolher um candidato explicitamente.
 Salvar reutiliza o mesmo método da CLI. Uma confirmação de identidade não transforma
 SEM_STATUS, SEM_SUPORTE ou SUPORTE_PARCIAL em SUPORTADO.

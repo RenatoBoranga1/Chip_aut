@@ -1,5 +1,6 @@
 """Streamlit presentation only; all operational rules live in services/repositories."""
 
+import json
 import logging
 import sys
 import uuid
@@ -13,53 +14,32 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from services.dashboard_service import DashboardConfig, DashboardService, filter_rows  # noqa: E402
+from ui.textos import (  # noqa: E402
+    ACTIONS,
+    COVERAGE_HELP,
+    IDENTITY_HELP,
+    LABELS,
+    MATCH_HELP,
+    SORTS,
+    ZERO_KM,
+    cell,
+    explanation,
+    row_labels,
+    validation_message,
+    value,
+)
 
 PAGES = [
     "Visão geral",
-    "Fila de Revisão",
+    "Fila de revisão",
     "Estoque WR Motos",
     "Sem suporte",
     "Suporte parcial",
     "Possíveis novas motos",
-    "Base do Scanner",
+    "Base do scanner",
     "Busca global",
     "Histórico",
 ]
-LABELS = {
-    "id": "Revisão",
-    "manufacturer": "Fabricante",
-    "model": "Modelo",
-    "version": "Versão",
-    "year": "Ano",
-    "partner": "Parceiro",
-    "priority": "Prioridade",
-    "state": "Estado da revisão",
-    "automatic_type": "Matching automático",
-    "effective_type": "Identidade efetiva",
-    "score": "Score",
-    "coverage": "Cobertura",
-    "last_seen": "Última aparição",
-    "external_id": "ID do anúncio",
-    "source_url": "Anúncio",
-    "scanner_key": "Chave do scanner",
-    "price": "Preço (R$)",
-    "mileage": "KM",
-    "supported_systems": "Sistemas suportados",
-    "unsupported_systems": "Sistemas sem suporte",
-    "analysis_systems": "Sistemas em análise",
-    "unknown_systems": "Sistemas sem status",
-    "evidence": "Evidência",
-    "status": "Status",
-    "system_count": "Sistemas",
-    "latest_date": "Data relevante",
-}
-ACTIONS = {
-    "Confirmar match": "CONFIRMAR_MATCH",
-    "Rejeitar candidato": "REJEITAR_CANDIDATO",
-    "Confirmar ausência na base atual": "NAO_EXISTE_NA_BASE",
-    "Adiar": "DEIXAR_PENDENTE",
-    "Ignorar": "IGNORAR",
-}
 
 
 def table(rows, key, columns=None):
@@ -71,15 +51,14 @@ def table(rows, key, columns=None):
     page = st.selectbox("Página", range(1, pages + 1), key=f"{key}_page") if pages > 1 else 1
     st.caption(f"{len(rows)} registros · página {page} de {pages}")
     data = [
-        {LABELS.get(k, k): v for k, v in row.items() if columns is None or k in columns}
+        row_labels({k: v for k, v in row.items() if columns is None or k in columns})
         for row in rows[(page - 1) * size : page * size]
     ]
-    st.dataframe(
-        data,
-        hide_index=True,
-        width="stretch",
-        column_config={"Anúncio": st.column_config.LinkColumn("Anúncio", display_text="Abrir anúncio")},
-    )
+    for row in data:
+        url = row.get("Link do anúncio")
+        if isinstance(url, str) and url.startswith(("https://", "http://")):
+            row["Link do anúncio"] = f"[Abrir anúncio](<{url.replace('>', '%3E')}>)"
+    st.table([{key: str(value) for key, value in row.items()} for row in data])
 
 
 def filtered(rows, key):
@@ -89,17 +68,20 @@ def filtered(rows, key):
         cols = st.columns(4)
         for n, field in enumerate(fields):
             options = sorted({r.get(field) for r in rows if r.get(field) is not None}, key=str)
-            filters[field] = cols[n % 4].multiselect(LABELS[field], options, key=f"{key}_{field}")
-        text = st.text_input("Texto livre", key=f"{key}_text", placeholder="Modelo, ano, ID ou chave do scanner")
+            filters[field] = cols[n % 4].multiselect(
+                LABELS[field],
+                options,
+                format_func=lambda v, f=field: str(cell(f, v)),
+                placeholder="Todos",
+                key=f"{key}_{field}",
+            )
+        text = st.text_input(
+            "Texto livre", key=f"{key}_text", placeholder="Modelo, ano, identificador ou chave da base"
+        )
         sort = st.selectbox(
-            "Ordenação",
+            "Ordenar por",
             ["priority", "recent", "oldest", "model"],
-            format_func=lambda v: {
-                "priority": "Prioridade",
-                "recent": "Mais recente",
-                "oldest": "Mais antigo",
-                "model": "Fabricante / modelo",
-            }[v],
+            format_func=lambda v: SORTS[v],
             key=f"{key}_sort",
         )
     return filter_rows(rows, filters, text, sort)
@@ -109,7 +91,7 @@ def systems(moto):
     if not moto:
         st.info("Identidade ainda sem vínculo válido com a base. Suporte não confirmado.")
         return
-    st.write(f"**Cobertura atual: {moto['status']}**")
+    st.write(f"**Cobertura atual: {value(moto['status'])}**")
     for field in ("supported_systems", "unsupported_systems", "analysis_systems", "unknown_systems"):
         st.write(f"**{LABELS[field]}:** {', '.join(moto[field]) or 'Nenhum registro'}")
 
@@ -119,7 +101,7 @@ def detail(service, item_id):
     ad, auto, effective = item["advertisement"], item["automatic"], item["effective"]
     st.subheader(f"Revisão #{item_id} · {ad['manufacturer']} {ad['model']}")
     st.caption(
-        f"{item['state']} · prioridade {item['priority']} · base {item['base_id']} · coleta {item['collection_id']}"
+        f"{value(item['state'])} · prioridade {value(item['priority'])} · base {item['base_id']} · coleta {item['collection_id']}"
     )
     if item["stale_reason"] or item["state"] == "invalidated":
         st.warning("Decisão ou resultado desatualizado. O caso precisa de nova revisão na base atual.")
@@ -127,20 +109,22 @@ def detail(service, item_id):
     c1.metric("Ano", ad["year"] or "—")
     c2.metric("Preço (R$)", ad.get("price") or "—")
     c3.metric("Quilometragem", ad.get("mileage") if ad.get("mileage") is not None else "—")
-    st.write(f"Versão: {ad.get('version') or 'Não estruturada no anúncio'} · ID: {ad['external_id']}")
+    st.write(f"Versão: {ad.get('version') or 'Não estruturada no anúncio'} · Identificador: {ad['external_id']}")
     st.caption(f"Primeira aparição: {item['first_seen']} · última: {item['last_seen']}")
     if ad.get("source_url", "").startswith(("https://", "http://")):
         st.link_button("Abrir anúncio em nova aba", ad["source_url"])
     with st.expander("Texto original do anúncio"):
         st.text(ad["raw_name"])
         st.text(ad["raw_text"])
-    st.subheader("Matching automático preservado")
-    st.write(f"**{auto['match_type']}** · score: {auto['confidence']}")
+    st.subheader("Resultado automático preservado")
+    st.write(
+        f"**{value(auto['match_type'])}** · pontuação de similaridade: {auto['confidence'] if auto['confidence'] is not None else 'Não informada'}"
+    )
     for reason in auto["reasons"]:
-        st.write(reason)
+        st.write(explanation(reason))
     table(auto["candidates"], f"candidates_{item_id}")
     st.subheader("Identidade efetiva e cobertura")
-    st.write(f"**{effective['match_type']}** · {effective['scanner_key'] or 'Sem chave vinculada'}")
+    st.write(f"**{value(effective['match_type'])}** · {effective['scanner_key'] or 'Sem chave vinculada'}")
     if effective["match_type"] == "CONFIRMADO_AUSENTE_NA_BASE":
         st.info("Identidade confirmada como ausente da versão atual da base.")
     systems(item["systems"])
@@ -150,10 +134,12 @@ def detail(service, item_id):
             st.write(
                 f"Decisão #{decision['id']} · origem: item {decision['review_item_id']}, execução {decision['run_id']}, base {decision['import_id']}"
             )
-            st.write(f"Aplicação atual: {item['state']} · validade: {item['stale_reason'] or 'Válida'}")
-            st.json(
-                {"policy": decision["policy_json"], "normalized_identity": decision["identity_json"]}, expanded=False
+            st.write(
+                f"Aplicação atual: {value(item['state'])} · validade: {value(item['stale_reason']) if item['stale_reason'] else 'Válida'}"
             )
+            policy = json.loads(decision["policy_json"])
+            st.write("Abrangência da decisão: " + value(policy.get("memory_scope")))
+            table([json.loads(decision["identity_json"])], f"memory_identity_{item_id}")
         else:
             st.write("Nenhuma decisão humana aplicável.")
         table(
@@ -167,10 +153,11 @@ def detail(service, item_id):
             ],
             f"decisions_{item_id}",
         )
-        st.write("Eventos de invalidação", item["events"])
+        st.write("Motivos para uma nova revisão")
+        table([{"created_at": date, "reason": reason} for date, reason in item["events"]], f"events_{item_id}")
     st.subheader("Registrar decisão humana")
     if service.config.read_only:
-        st.info("Modo somente leitura. Ações desabilitadas por MOTO_READ_ONLY.")
+        st.info("Modo somente leitura. O registro de decisões está desabilitado.")
         return
     draft_key = f"draft_{item_id}"
     receipt_key = f"receipt_{item_id}"
@@ -190,7 +177,7 @@ def detail(service, item_id):
         st.session_state.pop(draft_key, None)
         st.rerun()
     candidates = {m["key"]: m for m in item["selectable_candidates"]}
-    st.warning("Confirmar identidade não altera o status de suporte.")
+    st.warning(IDENTITY_HELP)
     with st.form(f"decision_{item_id}", clear_on_submit=False):
         action = st.selectbox("Ação", list(ACTIONS), key=f"action_{item_id}")
         candidate = st.selectbox(
@@ -198,10 +185,10 @@ def detail(service, item_id):
             list(candidates),
             index=None,
             placeholder="Escolha explicitamente um candidato",
-            format_func=lambda k: f"{k} · {candidates[k]['status']}",
+            format_func=lambda k: f"{k} · {value(candidates[k]['status'])}",
             key=f"candidate_{item_id}",
         )
-        reviewer = st.text_input("Reviewer", key=f"reviewer_{item_id}")
+        reviewer = st.text_input("Revisor", key=f"reviewer_{item_id}")
         note = st.text_area("Justificativa", key=f"note_{item_id}")
         submitted = st.form_submit_button("Salvar decisão", type="primary")
     if submitted:
@@ -211,12 +198,12 @@ def detail(service, item_id):
                 ACTIONS[action],
                 reviewer,
                 note,
-                candidate if action in {"Confirmar match", "Rejeitar candidato"} else None,
+                candidate if action in {"Confirmar correspondência", "Rejeitar candidato"} else None,
                 draft["request_id"],
                 draft["revision"],
             )
         except ValueError as exc:
-            st.error(str(exc))
+            st.error(validation_message(exc))
         except Exception:
             st.error(
                 "Não foi possível confirmar o salvamento. Atualize e confira o histórico antes de tentar novamente."
@@ -231,16 +218,20 @@ def detail(service, item_id):
 
 
 def main():
-    st.set_page_config(page_title="Moto Coverage · Operação", page_icon="🏍", layout="wide")
+    st.set_page_config(page_title="Cobertura de motos · Operação", page_icon="🏍", layout="wide")
+    st.markdown("<style>[data-testid='stToolbar'], #MainMenu {display:none}</style>", unsafe_allow_html=True)
     config = DashboardConfig.from_env()
     service = DashboardService(config)
-    st.sidebar.title("Moto Coverage")
+    st.sidebar.title("Cobertura de motos")
     st.sidebar.caption("OPERAÇÃO · WR MOTOS")
     try:
         snapshot = service.snapshot()
         partners = snapshot["partners"] or [config.partner]
         partner = st.sidebar.selectbox(
-            "Parceiro", partners, index=partners.index(config.partner) if config.partner in partners else 0
+            "Parceiro",
+            partners,
+            format_func=lambda v: cell("partner", v),
+            index=partners.index(config.partner) if config.partner in partners else 0,
         )
         if partner != config.partner:
             service = DashboardService(replace(config, partner=partner))
@@ -248,7 +239,7 @@ def main():
     except Exception:
         logging.getLogger(__name__).exception("dashboard_read_failed")
         st.error(
-            "Não foi possível abrir a base operacional. Verifique MOTO_DB, o arquivo SQLite e as migrations pela CLI."
+            "Não foi possível abrir a base de dados. Peça ao responsável para conferir o arquivo e a configuração do sistema."
         )
         st.stop()
     page = st.sidebar.radio("Navegação", PAGES, key="navigation")
@@ -259,16 +250,17 @@ def main():
     st.title(page)
     st.caption("Identidade, decisões humanas e cobertura do scanner — com histórico preservado.")
     if snapshot["zero_km_warning"]:
-        st.warning("Classificação 0 km indisponível devido inconsistência observada no site")
+        st.warning(ZERO_KM)
     if page == "Visão geral":
         cols = st.columns(4)
         cols[0].metric("Anúncios ativos", len(snapshot["stock"]))
         cols[1].metric("Fila pendente", sum(snapshot["states"].get(s, 0) for s in ("pending", "invalidated")))
         cols[2].metric("Prioridade alta", snapshot["priorities"].get("high", 0))
-        cols[3].metric("Base do scanner", snapshot["base_id"])
+        cols[3].metric("Versão da base", snapshot["base_id"])
         left, right = st.columns(2)
         with left:
-            st.subheader("Matching automático registrado")
+            st.subheader("Correspondência automática registrada")
+            st.caption(MATCH_HELP)
             table([{"Classificação": k, "Anúncios": v} for k, v in snapshot["matching"].items()], "metrics_matching")
             st.subheader("Fila de revisão")
             table(
@@ -286,7 +278,8 @@ def main():
                 )
             )
         with right:
-            st.subheader("Cobertura efetiva")
+            st.subheader("Cobertura atual")
+            st.caption(COVERAGE_HELP)
             kinds = list(
                 dict.fromkeys(
                     [
@@ -301,34 +294,45 @@ def main():
                 )
             )
             table([{"Cobertura": k, "Anúncios": snapshot["coverage"].get(k, 0)} for k in kinds], "metrics_coverage")
-            st.info("Não encontrada na base não significa SEM_SUPORTE. Cobertura depende de identidade válida.")
+            st.info(
+                "Não encontrar uma moto na base não significa que ela esteja sem suporte. Confirme sua identidade antes de avaliar a cobertura."
+            )
         st.subheader("Última coleta")
         latest = snapshot["latest"]
         if latest:
             summary = latest["summary"]
-            st.write(f"{snapshot['partner']} · {latest['created_at']} · {latest['status']} · coleta {latest['id']}")
             st.write(
-                {
-                    "Páginas": len(summary.get("pages", [])),
-                    "Total bruto": summary.get("metadata", {}).get("observed_cards"),
-                    "Duplicados": summary.get("metadata", {}).get("duplicate_occurrences"),
-                    "Total líquido": latest["count"],
-                    "Falhas": len(summary.get("errors", [])),
-                    "Avisos de parsing": sum(latest["warnings"].values()),
-                    **latest["delta"],
-                }
+                f"{cell('partner', snapshot['partner'])} · {latest['created_at']} · {value(latest['status'])} · coleta {latest['id']}"
+            )
+            table(
+                [
+                    {
+                        "Páginas": len(summary.get("pages", [])),
+                        "Total bruto": summary.get("metadata", {}).get("observed_cards"),
+                        "Duplicados": summary.get("metadata", {}).get("duplicate_occurrences"),
+                        "Total líquido": latest["count"],
+                        "Falhas": len(summary.get("errors", [])),
+                        "Avisos na leitura dos anúncios": sum(latest["warnings"].values()),
+                        **latest["delta"],
+                    }
+                ],
+                "last_collection",
             )
             with st.expander("Falhas, avisos e evidências da coleta"):
-                st.json(
-                    {
-                        "errors": summary.get("errors", []),
-                        "warnings": latest["warnings"],
-                        "metadata": summary.get("metadata", {}),
-                    }
+                table(
+                    [{"reason": code, "Ocorrências": count} for code, count in latest["warnings"].items()],
+                    "collection_warnings",
+                )
+                table(
+                    [
+                        {"code": error.get("code"), "page": error.get("page"), "scope": error.get("scope")}
+                        for error in summary.get("errors", [])
+                    ],
+                    "collection_errors",
                 )
         else:
             st.info("Nenhuma coleta disponível.")
-    elif page == "Fila de Revisão":
+    elif page == "Fila de revisão":
         rows = filtered(snapshot["queue"], "queue")
         table(
             rows,
@@ -377,7 +381,7 @@ def main():
         )
     elif page in {"Sem suporte", "Suporte parcial"}:
         status = "SEM_SUPORTE" if page == "Sem suporte" else "SUPORTE_PARCIAL"
-        st.caption("Somente anúncios com identidade vinculada e status da base vigente.")
+        st.caption("Somente anúncios com identidade vinculada e situação de suporte da base atual.")
         table(
             filter_rows(snapshot["stock"], {"coverage": [status]}),
             "support",
@@ -415,22 +419,42 @@ def main():
                     "source_url",
                 ],
             )
-    elif page == "Base do Scanner":
+    elif page == "Base do scanner":
         text = st.text_input("Buscar na base", placeholder="Fabricante, modelo, ano ou chave")
         rows = service.scanner(text)
         table(
             rows, "scanner", ["manufacturer", "model", "year", "scanner_key", "status", "system_count", "latest_date"]
         )
-        key = st.selectbox("Inspecionar identidade", [None, *[r["key"] for r in rows]], index=0)
+        key = st.selectbox(
+            "Inspecionar identidade",
+            [None, *[r["key"] for r in rows]],
+            index=0,
+            format_func=lambda k: k or "Selecione uma moto",
+        )
         if key:
             moto = next(r for r in rows if r["key"] == key)
             systems(moto)
-            st.json(moto, expanded=False)
+            table(
+                [moto],
+                "scanner_detail",
+                [
+                    "manufacturer",
+                    "model",
+                    "year",
+                    "scanner_key",
+                    "status",
+                    "system_count",
+                    "latest_date",
+                    "release_labels",
+                ],
+            )
     elif page == "Busca global":
-        text = st.text_input("Buscar em anúncios, fila e scanner", placeholder="Ex.: BMW 2022 ou ID do anúncio")
+        text = st.text_input(
+            "Buscar em anúncios, fila e scanner", placeholder="Ex.: BMW 2022 ou identificador do anúncio"
+        )
         if text.strip():
             for name, rows in service.search(text).items():
-                st.subheader(name)
+                st.subheader("Base do scanner" if name == "Scanner" else name)
                 table(
                     rows,
                     name,

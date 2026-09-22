@@ -266,12 +266,12 @@ def ui(dashboard, monkeypatch):
     "page",
     [
         "Visão geral",
-        "Fila de Revisão",
+        "Fila de revisão",
         "Estoque WR Motos",
         "Sem suporte",
         "Suporte parcial",
         "Possíveis novas motos",
-        "Base do Scanner",
+        "Base do scanner",
         "Busca global",
         "Histórico",
     ],
@@ -283,7 +283,7 @@ def test_streamlit_page_smoke(ui, page):
 
 
 def test_streamlit_confirmation_updates_effective_and_home(ui, dashboard):
-    ui.radio(key="navigation").set_value("Fila de Revisão").run()
+    ui.radio(key="navigation").set_value("Fila de revisão").run()
     ui.selectbox(key="review_selection").set_value(1).run()
     assert not ui.exception and not ui.error
     ui.selectbox(key="candidate_1").set_value("BMW|F900R|2025")
@@ -299,7 +299,7 @@ def test_streamlit_confirmation_updates_effective_and_home(ui, dashboard):
 
 
 def test_streamlit_validation_error_is_visible_without_success(ui, dashboard):
-    ui.radio(key="navigation").set_value("Fila de Revisão").run()
+    ui.radio(key="navigation").set_value("Fila de revisão").run()
     ui.selectbox(key="review_selection").set_value(1).run()
     next(b for b in ui.button if b.label == "Salvar decisão").click().run()
     assert ui.error and not ui.success and not ui.exception
