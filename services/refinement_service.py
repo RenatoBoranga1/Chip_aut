@@ -153,7 +153,7 @@ def analyze_refinement(collection_id, baseline_coverage_id, database, destinatio
         raise ValueError("Observações foram alteradas desde o baseline")
     rules = load_matching_rules(rules_path)
     engine = Matcher(base, scanner_policy["manufacturer_aliases"], rules, memory)
-    after_report = build_coverage(collection_id, database, destination / "coverage", rules_path)
+    after_report = build_coverage(collection_id, database, destination / "coverage", rules_path, update_queue=False)
     if after_report["import_id"] != import_id:
         raise ValueError("Base mudou durante análise; repita com snapshot estável")
     new_items = {i["advertisement"]["external_id"]: i for group in after_report["groups"].values() for i in group}

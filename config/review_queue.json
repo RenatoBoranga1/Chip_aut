@@ -1,0 +1,7 @@
+{
+  "version": "3.2-strict-1",
+  "attention_statuses": ["SEM_SUPORTE", "SUPORTE_PARCIAL", "EM_ANALISE", "SEM_STATUS"],
+  "high_match_types": ["NAO_ENCONTRADA_NA_BASE", "CONFIRMADO_AUSENTE_NA_BASE"],
+  "high_scanner_statuses": ["SEM_SUPORTE", "SUPORTE_PARCIAL"],
+  "notes": "Resolved/reused/ignored/deferred have low review priority; coverage status remains visible. Other pending cases are medium. No aging heuristics."
+}

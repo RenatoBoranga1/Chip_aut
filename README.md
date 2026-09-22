@@ -1,12 +1,72 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1, 2 e pipeline do Milestone 3.** Parser, normalização,
+**Entrega atual: Milestones 1 a 3.2, incluindo fila operacional de revisão.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
 funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
 preliminar. Dashboard, ações de desenvolvimento e scheduler permanecem futuros.
 
 ## WR Motos — coleta, histórico e cobertura
+
+### Milestone 3.2 — fila operacional
+
+```powershell
+python -m app.collect --fresh
+python -m app.coverage 3
+python -m app.review_queue list --status pending
+python -m app.review_queue list --priority high
+python -m app.review_queue show 123
+python -m app.review_queue history 123
+python -m app.review_queue confirm 123 --candidate "BMW|R18|2022" --reviewer "Renato" --note "Identidade conferida"
+python -m app.review_queue reject 123 --candidate "BMW|R18|2022" --reviewer "Renato" --note "Versão diferente"
+python -m app.review_queue no-match 123 --reviewer "Renato" --note "Identidade ausente nesta versão da base"
+python -m app.review_queue defer 123 --reviewer "Renato" --note "Revisar com parceiro"
+python -m app.review_queue ignore 123 --reviewer "Renato" --note "Fora do escopo operacional"
+```
+
+IDs e chaves acima são exemplos: use os valores exibidos na sua fila. Nenhuma
+decisão desses exemplos foi aplicada ao banco real. `--db` e `--json` ficam antes
+do subcomando: `python -m app.review_queue --db data/coverage.sqlite3 --json list`.
+`show`/`history` exibem anúncio, resultado automático, candidatos, decisão efetiva,
+origem/validade/escopo da memória e histórico. A confirmação aceita chave existente
+na base vigente, inclusive fora dos candidatos fuzzy, respeitando fabricante e ano.
+Revisor e justificativa são obrigatórios para todas as ações.
+
+`app.coverage` atualiza a fila e produz cobertura pelo `effective_result`. O JSON
+mantém `automatic_result`, `human_decision` e `effective_result` separados; o campo
+legado `matching` mantém seu significado automático. Após decidir, gere novamente
+a cobertura da coleta atual para produzir um novo relatório. Relatórios anteriores
+no SQLite não são sobrescritos.
+
+A fila tem estados `pending`, `resolved`, `ignored`, `deferred`, `invalidated` e
+`reused`. Repetir cobertura não duplica ocorrências da mesma coleta/base/política.
+Nova coleta acrescenta ocorrência ao item; mudança de identidade invalida o item
+anterior e usa outro item. `list --include-inactive` inclui identidades antigas.
+Prioridades ficam centralizadas em `config/review_queue.json`.
+
+A memória usa parceiro + fabricante/modelo/versão normalizados estritamente + ano.
+Não aplica aliases nem retira publicidade da assinatura. Identidades incompletas
+não recebem decisões compartilháveis. Confirmações/rejeições ambíguas ou com tokens
+de identidade diferentes do alvo são específicas ao anúncio. Somente identidades
+explícitas, sem ambiguidade, permitem compartilhar entre external_ids distintos.
+Mesmo nesse caso, todos os campos da assinatura devem coincidir. Uma ambiguidade
+nova impede a aplicação entre anúncios. O escopo escolhido é salvo na decisão.
+
+Ausências e rejeições expiram ao mudar a versão da base. Confirmações exigem que a
+chave e a identidade do alvo continuem existindo; o suporte é lido da base vigente.
+`list`, `show`, novas decisões e cobertura revalidam a memória transacionalmente.
+Uma confirmação de identidade não muda suporte. `CONFIRMADO_AUSENTE_NA_BASE`
+é ausência declarada na versão consultada, com status de suporte nulo.
+
+Os comandos antigos `app.review_match` e sua memória continuam disponíveis, sem
+migração implícita para decisões por parceiro. A camada operacional aplica suas
+decisões após o motor existente e nunca deixa fuzzy sobrepor uma decisão válida.
+Para auditoria automática de coleta antiga, use `app.coverage ID --automatic-only`:
+esse modo não aplica decisões operacionais nem retrocede a fila atual. `app.refine`
+também usa o modo de auditoria automática.
+
+Veja `RESULTADOS_MILESTONE_3_2.md` para arquitetura, transações, testes, resultados
+da coleta e limites. Nenhum dashboard, scheduler ou notificação foi adicionado.
 
 ### Milestone 3.1 — refinamento offline
 
