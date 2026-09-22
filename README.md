@@ -481,14 +481,68 @@ Para usar o matching na imagem, substitua o entrypoint:
 docker run --rm -v "${PWD}/data:/app/data" -v "${PWD}/reports:/app/reports" --entrypoint python moto-coverage-monitor -m app.match --manufacturer BMW --model "F900 R" --year 2025
 ```
 
-## Próximos milestones
+## Dashboard operacional — Milestone 4
 
-3. Validar periodicamente o pipeline WR Motos entregue nesta branch.
-4. Evoluir a comparação/cobertura preliminar a partir da revisão dos casos reais.
-5. Streamlit: oportunidades, base scanner, parceiros e decisões persistidas.
-6. Histórico de anúncios, first/last_seen, verificações independentes do dashboard,
-   agendamento diário às 07:00 e alertas.
+Na raiz do repositório, com o ambiente virtual ativo:
 
-Não há `app.monitor`, dashboard ou agendamento automático nesta entrega.
-As validações históricas abaixo não incluem a coleta adicionada no Milestone 3;
-consulte `VALIDACAO_MILESTONE_3.md` para os resultados desta etapa.
+```powershell
+python -m pip install -r requirements-dev.txt
+python -m streamlit run app/dashboard.py
+```
+
+Abra http://127.0.0.1:8501. O servidor fica limitado à máquina local.
+O banco deve existir e já conter a base importada e a fila do Milestone 3.2.
+As configurações são variáveis de ambiente; os caminhos relativos partem da raiz
+na qual o comando é executado:
+
+```powershell
+$env:MOTO_DB = "data/coverage.sqlite3"
+$env:MOTO_PARTNER = "wr_motos"
+$env:MOTO_READ_ONLY = "1"
+python -m streamlit run app/dashboard.py
+```
+
+`MOTO_DB` usa `data/coverage.sqlite3` por padrão; `MOTO_PARTNER`, `wr_motos`.
+`MOTO_READ_ONLY=1` desabilita decisões. Para operar a fila, use
+`$env:MOTO_READ_ONLY = "0"` e reinicie o servidor; esse é o padrão.
+Navegar usa conexão SQLite somente leitura, inclusive no modo operacional.
+A primeira operação de escrita pelo repositório existente aplica a migração 007,
+que acrescenta recibos de submissão e transições de estado. Bancos na versão 006
+podem ser consultados sem migrar. Faça backup do banco antes de atualizar um
+ambiente operacional, conforme o procedimento já usado nas migrações anteriores.
+
+O menu contém Visão geral, Fila de Revisão, Estoque WR Motos, Sem suporte,
+Suporte parcial, Possíveis novas motos, Base do Scanner, Busca global e Histórico.
+As listagens têm paginação e filtros; a busca ignora diferenças de caixa e acentos.
+O scanner mostra o snapshot atual e seus sistemas, sem permitir edição.
+O histórico apresenta coletas, ocorrências e decisões com reviewer, justificativa
+e estados anterior/posterior quando registrados pela migração 007.
+
+Para revisar, filtre a fila, abra um item e confira anúncio, resultado automático,
+candidatos, memória humana e cobertura efetiva. Selecione a ação e informe reviewer
+e justificativa. Confirmar ou rejeitar exige escolher um candidato explicitamente.
+Salvar reutiliza o mesmo método da CLI. Uma confirmação de identidade não transforma
+SEM_STATUS, SEM_SUPORTE ou SUPORTE_PARCIAL em SUPORTADO.
+
+A submissão possui identificador persistido e controle de versão do formulário.
+Cliques repetidos não duplicam a mesma decisão; mudança de base, decisão ou coleta
+exige atualizar o item. Após salvar, o recibo substitui o formulário; use
+“Iniciar outra revisão” para uma nova decisão deliberada. Uma identidade coletada
+que mudou exige gerar a cobertura correspondente antes de revisar.
+O resultado efetivo se atualiza na próxima renderização; relatórios históricos de
+cobertura preservam seu conteúdo original e devem ser gerados novamente pela CLI
+quando necessário. Memórias inválidas aparecem como pendentes de revisão.
+
+O aviso de divergência do filtro 0 KM continua visível. “Provável ausência” é uma
+hipótese separada de ausência confirmada; “não encontrada na base” não equivale a
+SEM_SUPORTE. A interface não dispara coleta, importação ou agendamento.
+
+A arquitetura, os números reais e os limites da validação estão em
+[RESULTADOS_MILESTONE_4.md](RESULTADOS_MILESTONE_4.md).
+
+## Próximas etapas
+
+O dashboard operacional do Milestone 4 está implementado. Agendamento diário,
+alertas, autenticação e deploy permanecem fora desta entrega.
+As validações anteriores continuam documentadas nos respectivos arquivos
+`VALIDACAO*` e `RESULTADOS_MILESTONE_3*`.

@@ -1,5 +1,6 @@
 """Transactional operational queue. Source observations and decisions are immutable."""
 
+import hashlib
 import json
 from copy import deepcopy
 from dataclasses import asdict
@@ -126,7 +127,7 @@ class ReviewRepository(MatchingRepository):
             state = "invalidated"
         elif not needs_attention(effective, load_policy()):
             state = "resolved"
-        if not item["active"]:
+        if not item["active"] or self.observation(item)[1] != item["signature"]:
             state = "invalidated"
             stale = "ADVERTISEMENT_IDENTITY_CHANGED"
             effective.update(
@@ -302,18 +303,57 @@ class ReviewRepository(MatchingRepository):
             and (requested_priority is None or i["priority"] == requested_priority)
         ]
 
-    def decide(self, item_id, action, reviewer, note, candidate_key=None):
+    def observation(self, item):
+        row = self.connection.execute(
+            "SELECT latest_collection_id,json_object('partner',partner,'manufacturer',json_extract(payload_json,'$.manufacturer'),"
+            "'model',json_extract(payload_json,'$.model'),'version',json_extract(payload_json,'$.version'),'year',json_extract(payload_json,'$.year')) "
+            "FROM partner_advertisements WHERE partner=? AND external_id=?",
+            (item["partner"], item["external_id"]),
+        ).fetchone()
+        return (row[0], signature(json.loads(row[1]))) if row else (None, item["signature"])
+
+    def revision(self, item, base_id):
+        decisions = self._decisions(item)
+        observed = self.observation(item)
+        value = [
+            item["id"],
+            item["signature"],
+            item["run_id"],
+            item["active"],
+            base_id,
+            decisions[-1]["id"] if decisions else None,
+            observed[0] if observed else None,
+        ]
+        return hashlib.sha256(encode(value).encode()).hexdigest()
+
+    def decide(
+        self, item_id, action, reviewer, note, candidate_key=None, *, submission_id=None, expected_revision=None
+    ):
         if action not in ACTIONS or not reviewer.strip() or not note.strip():
             raise ValueError("Ação, reviewer e justificativa são obrigatórios")
         if (action in {"CONFIRMAR_MATCH", "REJEITAR_CANDIDATO"}) != bool(candidate_key):
             raise ValueError("Candidato obrigatório somente para confirmar/rejeitar")
         with self.connection:
             self.connection.execute("BEGIN IMMEDIATE")
+            request = encode([item_id, action, reviewer.strip(), note.strip(), candidate_key, expected_revision])
+            if submission_id:
+                saved = self.connection.execute(
+                    "SELECT request_json,decision_id FROM review_submissions WHERE request_id=?", (submission_id,)
+                ).fetchone()
+                if saved:
+                    if saved[0] != request:
+                        raise ValueError("Identificador de submissão já usado com outros dados")
+                    return {"id": item_id, "decision_id": saved[1], "submission_replayed": True}
             base_id, _, motos = self.matching_snapshot()
             base = {m.key: m for m in motos}
             item = self._item(item_id)
+            if expected_revision is not None and expected_revision != self.revision(item, base_id):
+                raise ValueError("Item ou base mudou desde a abertura. Atualize e confira os dados antes de decidir.")
+            before_state = self._evaluate(item, base_id, base)[1]
             if not item["active"]:
                 raise ValueError("Anúncio mudou de identidade; revise o item ativo")
+            if self.observation(item)[1] != item["signature"]:
+                raise ValueError("A identidade coletada mudou. Gere a cobertura da nova coleta antes de revisar.")
             if action in SHARED_ACTIONS and not complete_identity(item["identity"]):
                 raise ValueError("Identidade incompleta; mantenha pendente até corrigir na origem")
             target = base.get(candidate_key)
@@ -334,7 +374,7 @@ class ReviewRepository(MatchingRepository):
                 "source_run_import_id": run["import_id"],
                 "memory_scope": memory_scope(action, run["automatic_result"], run["policy"], target),
             }
-            self.connection.execute(
+            cursor = self.connection.execute(
                 "INSERT INTO review_decisions(review_item_id,signature,action,reviewer,note,created_at,candidate_key,target_identity_json,import_id,run_id,policy_json,identity_json,previous_decision_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     item_id,
@@ -352,10 +392,19 @@ class ReviewRepository(MatchingRepository):
                     previous[-1]["id"] if previous else None,
                 ),
             )
+            decision_id = cursor.lastrowid
             # All existing equivalent items observe the same newest human event atomically.
             ids = self.connection.execute(
                 "SELECT id FROM review_items WHERE signature=? AND active=1", (item["signature"],)
             ).fetchall()
             for (current_id,) in ids:
                 self._refresh(current_id, base_id, base)
+            self.connection.execute(
+                "INSERT INTO review_decision_transitions VALUES (?,?,?)",
+                (decision_id, before_state, self._item(item_id)["state"]),
+            )
+            if submission_id:
+                self.connection.execute(
+                    "INSERT INTO review_submissions VALUES (?,?,?)", (submission_id, request, decision_id)
+                )
         return self.show(item_id)

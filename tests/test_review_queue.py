@@ -353,7 +353,7 @@ def test_migration_from_v5_preserves_data_and_reopens(tmp_path):
     for _ in range(2):
         with ReviewRepository(path) as repo:
             assert repo.connection.execute("SELECT source_path FROM imports").fetchone()[0] == "untouched"
-            assert repo.connection.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 6
+            assert repo.connection.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 7
             assert repo.connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
             assert not repo.connection.execute("PRAGMA foreign_key_check").fetchall()
 
