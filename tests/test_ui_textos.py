@@ -42,7 +42,7 @@ def dashboard(tmp_path):
         ("SEM_STATUS", "Situação não definida"),
         ("COMPLETE", "Concluída"),
         ("CACHED", "Dados temporários reutilizados"),
-        ("FAILED", "Falha"),
+        ("FAILED", "Falhou"),
     ],
 )
 def test_labels_for_domain_values(raw, expected):

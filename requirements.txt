@@ -4,3 +4,4 @@ beautifulsoup4==4.15.0
 requests==2.34.2
 playwright==1.63.0
 streamlit==1.64.0
+tzdata==2026.4

@@ -32,3 +32,8 @@ logs/
 .DS_Store
 Thumbs.db
 reports/
+
+# Local execution coordination
+*.pipeline.lock
+*.scheduler.lock
+*.schema.lock

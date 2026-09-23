@@ -147,6 +147,47 @@ VALUES.update(
         "identity_scoped": "Anúncios com a mesma identidade",
     }
 )
+VALUES.update(
+    {
+        "RUNNING": "Em execução",
+        "SUCCESS": "Concluída",
+        "PARTIAL_SUCCESS": "Concluída com avisos",
+        "FAILED": "Falhou",
+        "SKIPPED_ALREADY_RUNNING": "Ignorada porque já havia execução ativa",
+        "CANCELLED": "Cancelada",
+        "DISABLED": "Desabilitado",
+        "STOPPED": "Parado",
+        "STALE_ACTIVITY": "Sem sinal recente de atividade",
+        "CONFIG_PENDING": "Configuração aguardando aplicação",
+        "manual": "Manual",
+        "scheduled": "Agendada",
+    }
+)
+LABELS.update(
+    {
+        "started_at": "Início",
+        "finished_at": "Fim",
+        "heartbeat_at": "Último sinal de atividade",
+        "trigger_type": "Origem",
+        "pipeline_run_id": "Execução",
+        "duration_seconds": "Duração (segundos)",
+        "ads_before": "Anúncios antes",
+        "ads_after": "Anúncios depois",
+        "error_summary": "Observação",
+        "attempts": "Tentativas",
+    }
+)
+VALUES.update(
+    {
+        "AccessDeniedError": "O site interrompeu o acesso; não houve tentativa de contorno",
+        "Timeout": "O site demorou a responder",
+        "ReadTimeout": "O site demorou a enviar a resposta",
+        "ConnectTimeout": "O site demorou a aceitar a conexão",
+        "ConnectionError": "Falha de conexão com o site",
+        "RuntimeError": "Falha na leitura ou validação dos dados",
+        "OperationalError": "Falha ao acessar o banco de dados",
+    }
+)
 VALUES = {k.casefold(): v for k, v in VALUES.items()}
 ENUM_FIELDS = {
     "state",
@@ -164,6 +205,7 @@ ENUM_FIELDS = {
     "scope",
     "stale_reason",
     "code",
+    "trigger_type",
     "Classificação",
     "Estado",
     "Cobertura",
@@ -184,6 +226,8 @@ def label(key):
     if key in LABELS:
         return LABELS[key]
     if key in {
+        "Quantidade de falhas",
+        "Quantidade de avisos",
         "Classificação",
         "Anúncios",
         "Estado",
@@ -235,6 +279,8 @@ def explanation(raw):
 
 
 def cell(field, raw):
+    if field == "error_summary" and raw:
+        return "Há observações; consulte os detalhes da execução"
     if raw is None:
         return "Não informado"
     if isinstance(raw, bool):

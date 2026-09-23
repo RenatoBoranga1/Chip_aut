@@ -1,10 +1,10 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1 a 4.1, incluindo painel operacional em português.** Parser, normalização,
+**Entrega atual: Milestones 1 a 5, incluindo painel em português e atualização automática.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
 funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
-preliminar e painel Streamlit. Agendamento e ações de desenvolvimento permanecem futuros.
+preliminar, painel Streamlit e agendamento independente. Ações de desenvolvimento permanecem futuras.
 
 ## WR Motos — coleta, histórico e cobertura
 
@@ -549,14 +549,90 @@ quando necessário. Memórias inválidas aparecem como pendentes de revisão.
 
 O aviso de divergência do filtro 0 KM continua visível. “Provável ausência” é uma
 hipótese separada de ausência confirmada; “não encontrada na base” não equivale a
-SEM_SUPORTE. A interface não dispara coleta, importação ou agendamento.
+SEM_SUPORTE. A área de atualização automática pode solicitar uma coleta completa;
+a interface não mantém o agendador vivo nem importa a planilha.
 
 A arquitetura, os números reais e os limites da validação estão em
 [RESULTADOS_MILESTONE_4.md](RESULTADOS_MILESTONE_4.md).
 
+## Atualização automática — Milestone 5
+
+O agendador é um processo separado do Streamlit. Requer banco local já importado,
+ambiente virtual ativo e execução a partir da raiz do repositório:
+
+```powershell
+python -m app.scheduler validate-config
+python -m app.scheduler start
+```
+
+Mantenha esse processo em execução para atender os horários. Ctrl+C o encerra.
+Não é necessário abrir o dashboard. Não foi instalado serviço Windows nem
+inicialização no boot. Para executar uma vez ou consultar:
+
+```powershell
+python -m app.run_pipeline
+python -m app.scheduler run-now
+python -m app.scheduler status
+python -m app.scheduler history
+```
+
+`--db` escolhe o banco; `--config` escolhe a configuração. Alternativamente, use
+`MOTO_DB` e `MOTO_SCHEDULER_CONFIG`. `--json` fornece valores técnicos para
+integrações. `--request-key` deduplica uma solicitação; use outra chave para uma
+nova atualização deliberada.
+
+Configuração central: `config/scheduler.json`.
+
+- `enabled`: habilita recorrência. `false` encerra o agendador após a execução
+  atual; execução manual continua disponível.
+- `timezone`: fuso explícito, padrão `America/Sao_Paulo`.
+- `frequency`: `daily` usa `hour` e `minute` (padrão 07:00); `interval` usa
+  `interval_hours` (por exemplo, 12 ou 24).
+- `max_retries`: tentativas adicionais, padrão 2, máximo 5.
+- `retry_backoff_seconds`: espera inicial, duplicada até o teto de 300 segundos.
+- `heartbeat_seconds` e `activity_timeout_seconds`: intervalo e prazo do sinal
+  de atividade. Sinal antigo nunca autoriza tomar um bloqueio ativo.
+- `delay_seconds`, `request_timeout_seconds`, `max_pages`: limites da coleta.
+- `reports` e `log_file`: caminhos das evidências e do registro de execução.
+
+Configuração é recarregada entre execuções. Uma ocorrência vencida resulta em uma
+atualização, sem rajada de compensação. Horário diário ambíguo usa a primeira
+ocorrência; horário inexistente avança pelo intervalo da transição. Intervalos
+são medidos em UTC. A próxima ocorrência é mostrada no fuso configurado.
+
+Coleta completa, correspondência, fila, memória e cobertura são publicadas em uma
+transação. Coleta parcial ou falha posterior preserva o estado operacional anterior.
+Somente timeout, conexão e 5xx reconhecidos recebem novas tentativas. 401, 403,
+429, desafios e mudanças de contrato interrompem, sem contorno.
+
+O bloqueio pertence ao sistema operacional e ao caminho resolvido do banco. A
+CLI antiga de coleta também o respeita. Após queda do processo, a próxima execução
+recupera o bloqueio e cancela registros abandonados. **Não apague arquivos `.lock`
+para liberar um processo vivo.** Investigue e encerre processos travados. Use
+banco em disco local, sem múltiplas máquinas ou compartilhamento de rede.
+
+Dados iguais com a mesma base, regras e decisões reutilizam os resultados, sem
+duplicar matching, fila ou decisões. Repetir a mesma observação não incrementa
+verificações. Uma observação mais recente atualiza última aparição e conta uma
+verificação, sem recalcular correspondência. Cada solicitação nova fica no histórico.
+
+No painel, “Atualização automática” mostra estado, próxima execução, histórico e
+detalhes. “Executar atualização agora” inicia um processo separado usando o mesmo
+pipeline. “Preparar nova solicitação” cria uma intenção nova. Reexecuções da mesma
+solicitação reutilizam a chave. `MOTO_READ_ONLY=1` impede o disparo. A tela consulta
+mudanças a cada 15 segundos; não mantém o agendador vivo.
+
+Logs em `logs/pipeline.log`: rotação de 2 MB com três cópias anteriores. Banco e
+novos logs usam UTC. Falha de banco gera erro na CLI/log; não há falso sucesso.
+Histórico SQLite e evidências em `reports/pipeline` são preservados e precisam de
+backup; não têm retenção automática. A migração aditiva 008 registra execuções e
+estado do agendador, mantendo migrations anteriores intactas.
+
+Consulte [RESULTADOS_MILESTONE_5.md](RESULTADOS_MILESTONE_5.md).
+
 ## Próximas etapas
 
-O dashboard operacional do Milestone 4 está implementado. Agendamento diário,
-alertas, autenticação e deploy permanecem fora desta entrega.
+Notificações, novos parceiros, atualização automática da planilha, autenticação,
+serviço Windows definitivo e deploy permanecem fora desta entrega.
 As validações anteriores continuam documentadas nos respectivos arquivos
 `VALIDACAO*` e `RESULTADOS_MILESTONE_3*`.

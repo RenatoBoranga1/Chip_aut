@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "timezone": "America/Sao_Paulo",
+  "frequency": "daily",
+  "hour": 7,
+  "minute": 0,
+  "interval_hours": 12,
+  "max_retries": 2,
+  "retry_backoff_seconds": 30,
+  "heartbeat_seconds": 10,
+  "activity_timeout_seconds": 90,
+  "delay_seconds": 2,
+  "request_timeout_seconds": 30,
+  "max_pages": 100,
+  "reports": "reports/pipeline",
+  "log_file": "logs/pipeline.log"
+}

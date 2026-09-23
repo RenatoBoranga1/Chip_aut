@@ -36,6 +36,18 @@ def snapshot_diff(previous: dict, current: dict) -> dict:
 
 class SQLiteRepository:
     def __init__(self, path: str | Path):
+        from database.transaction import joined_connection
+
+        self._joined = joined_connection(path)
+        if self._joined is not None:
+            self.connection = self._joined
+            return
+        from services.pipeline_lock import migration_lock
+
+        with migration_lock(path):
+            self._initialize(path)
+
+    def _initialize(self, path):
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(path, timeout=30)
         self.connection.execute("PRAGMA foreign_keys = ON")
@@ -65,7 +77,8 @@ class SQLiteRepository:
         return self
 
     def __exit__(self, *args):
-        self.connection.close()
+        if getattr(self, "_joined", None) is None:
+            self.connection.close()
 
     def latest_snapshot(self) -> dict:
         rows = self.connection.execute(

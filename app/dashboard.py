@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from services.dashboard_service import DashboardConfig, DashboardService, filter_rows  # noqa: E402
+from ui.pipeline_panel import automatic_updates, refresh_after_pipeline  # noqa: E402
 from ui.textos import (  # noqa: E402
     ACTIONS,
     COVERAGE_HELP,
@@ -39,6 +40,7 @@ PAGES = [
     "Base do scanner",
     "Busca global",
     "Histórico",
+    "Atualização automática",
 ]
 
 
@@ -251,7 +253,10 @@ def main():
     st.caption("Identidade, decisões humanas e cobertura do scanner — com histórico preservado.")
     if snapshot["zero_km_warning"]:
         st.warning(ZERO_KM)
-    if page == "Visão geral":
+    refresh_after_pipeline(service)
+    if page == "Atualização automática":
+        automatic_updates(service, table)
+    elif page == "Visão geral":
         cols = st.columns(4)
         cols[0].metric("Anúncios ativos", len(snapshot["stock"]))
         cols[1].metric("Fila pendente", sum(snapshot["states"].get(s, 0) for s in ("pending", "invalidated")))
