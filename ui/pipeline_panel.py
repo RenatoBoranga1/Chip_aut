@@ -43,6 +43,12 @@ def automatic_updates(service, table):
         st.caption("Modo somente leitura: atualizações manuais estão desabilitadas.")
     st.subheader("Execuções automáticas")
     runs = data["runs"]
+    related = st.session_state.pop("related_pipeline_id", None)
+    if related:
+        from database.pipeline_repository import read_pipeline
+
+        if related not in {r["id"] for r in runs}:
+            runs.extend(read_pipeline(service.config.database, run_id=related)["runs"])
     table(
         [
             {
@@ -59,6 +65,7 @@ def automatic_updates(service, table):
     selected = st.selectbox(
         "Ver detalhes da execução",
         [None, *[r["id"] for r in runs]],
+        index=([None, *[r["id"] for r in runs]].index(related) if related else 0),
         format_func=lambda v: f"Execução {v}" if v else "Selecione uma execução",
     )
     if selected:
@@ -73,6 +80,10 @@ def automatic_updates(service, table):
             "pipeline_detail",
         )
         summary = run["summary"]
+        if summary.get("alert_error"):
+            st.warning("Geração de alertas pendente. A coleta publicada permanece válida; consulte o registro local.")
+        if "alerts" in summary:
+            st.write(f"Alertas criados: {summary['alerts']['created']} · Atualizados: {summary['alerts']['updated']}")
         for field, title in (
             ("matching_counts", "Correspondências"),
             ("coverage_counts", "Cobertura"),
@@ -100,7 +111,11 @@ def refresh_after_pipeline(service):
     from database.pipeline_repository import read_pipeline
 
     runs = read_pipeline(service.config.database, limit=1)["runs"]
-    marker = (runs[0]["id"], runs[0]["status"]) if runs else None
+    marker = (
+        (runs[0]["id"], runs[0]["status"], runs[0]["summary"].get("alerts"), runs[0]["summary"].get("alert_error"))
+        if runs
+        else None
+    )
     key = "pipeline_last_seen"
     if key in st.session_state and st.session_state[key] != marker:
         st.session_state[key] = marker

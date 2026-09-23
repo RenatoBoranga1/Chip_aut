@@ -5,6 +5,30 @@ import re
 
 LOGGER = logging.getLogger(__name__)
 
+ALERT_TYPES = {
+    "NOVO_ANUNCIO": "Novo anúncio",
+    "POSSIVEL_NOVA_MOTO": "Possível nova moto",
+    "SEM_SUPORTE": "Sem suporte",
+    "SUPORTE_PARCIAL": "Suporte parcial",
+    "REVISAO_ALTA_PRIORIDADE": "Revisão de alta prioridade",
+    "DECISAO_DESATUALIZADA": "Decisão desatualizada",
+    "FALHA_COLETA": "Falha de coleta",
+    "FALHA_PIPELINE": "Falha de atualização",
+    "COLETA_PARCIAL": "Coleta incompleta ou com avisos",
+    "NOVA_VERSAO_BASE": "Nova versão da base",
+}
+ALERT_SEVERITIES = {"INFO": "Informativo", "ATENCAO": "Atenção", "ALTA": "Alta prioridade", "CRITICA": "Crítico"}
+ALERT_STATES = {"NOVO": "Novo", "LIDO": "Lido", "ARQUIVADO": "Arquivado", "RESOLVIDO": "Resolvido"}
+ALERT_ACTIONS = {
+    "CRIADO": "Criado",
+    "LIDO": "Lido",
+    "NAO_LIDO": "Marcado como não lido",
+    "ARQUIVADO": "Arquivado",
+    "RESOLVIDO": "Resolvido",
+    "REABERTO": "Reaberto",
+    "CONDICAO_ENCERRADA": "Condição deixou de ser observada",
+}
+
 LABELS = {
     "id": "Revisão",
     "manufacturer": "Fabricante",

@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "failure_high_after": 3,
+  "failure_critical_after": 5,
+  "new_ad_enabled": true,
+  "probable_missing_enabled": true,
+  "unsupported_enabled": true,
+  "partial_support_enabled": true,
+  "high_priority_review_enabled": true,
+  "stale_decision_enabled": true,
+  "base_version_enabled": true,
+  "failure_enabled": true,
+  "partial_collection_enabled": true
+}

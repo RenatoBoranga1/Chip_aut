@@ -20,6 +20,7 @@ from matching.review_policy import load_policy
 from matching.rules import load_matching_rules
 from partners.wr_http import WRHTTPSource
 from partners.wr_motos import WRMotosCollector
+from services.alert_service import enqueue, safe_process
 from services.collection_service import fetch_collection
 from services.coverage_service import build_coverage
 from services.pipeline_lock import AlreadyRunning, ExecutionLock
@@ -126,7 +127,9 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
     started = time.monotonic()
     run_id = None
     summary = {"attempts": 0, "warnings": {}, "errors": []}
+    alert_context = {"stage": "preflight"}
     try:
+        safe_process(database)
         with PipelineRepository(database) as repo:
             repo.recover()
             previous = repo.existing(request_key)
@@ -142,6 +145,7 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
         folder = Path(config.reports) / f"run-{run_id:06d}"
         factory = collector_factory or default_collector
         with activity(database, run_id, config.heartbeat_seconds):
+            alert_context["stage"] = "collection"
             for attempt in range(config.max_retries + 1):
                 summary["attempts"] = attempt + 1
                 LOGGER.info("Execução %s: coleta; tentativa=%s", run_id, attempt + 1)
@@ -150,6 +154,7 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
                     raise ValueError("Parceiro retornado pela coleta é inválido")
                 if result.complete and not result.errors:
                     break
+                alert_context["partial"] = bool(result.advertisements) and not result.complete
                 summary["errors"].extend(result.errors)
                 if not transient(result.errors) or attempt == config.max_retries:
                     raise ValueError("Coleta incompleta ou bloqueada; estoque e cobertura anteriores preservados")
@@ -157,10 +162,18 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
                 LOGGER.warning("Execução %s: falha transitória; nova tentativa em %ss", run_id, delay)
                 sleeper(delay)
             summary["warnings"] = dict(Counter(w for a in result.advertisements for w in a.parse_warnings))
+            alert_context.update(stage="publication", partial=False)
             # Existing services join this transaction. Any later failure rolls back collection, matching AND queue.
             LOGGER.info("Execução %s: persistência, correspondência, memória, fila e cobertura", run_id)
             with atomic_database(database):
                 with PipelineRepository(database) as repo:
+                    alert_context["review_max_before"] = repo.connection.execute(
+                        "SELECT COALESCE(MAX(id),0) FROM review_items"
+                    ).fetchone()[0]
+                    previous_coverage = repo.connection.execute(
+                        "SELECT import_id FROM coverage_runs ORDER BY id DESC LIMIT 1"
+                    ).fetchone()
+                    alert_context["previous_base"] = previous_coverage[0] if previous_coverage else None
                     before = {
                         r[0]
                         for r in repo.connection.execute(
@@ -183,6 +196,10 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
                     ).fetchone()[0]
                     reuse = prior is not None and prior[0] == latest
                     current = {a.external_id for a in result.advertisements}
+                    alert_context["new_ids"] = sorted(current - known)
+                    alert_context["observation"] = sorted(
+                        (a.external_id, a.collected_at) for a in result.advertisements
+                    )
                     summary.update(
                         ads_before=len(before),
                         ads_after=len(current),
@@ -225,6 +242,14 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
                         collection_id=collection_id,
                         fingerprint=stamp,
                     )
+                    alert_context["coverage_id"] = repo.connection.execute(
+                        "SELECT MAX(id) FROM coverage_runs WHERE collection_id=?", (collection_id,)
+                    ).fetchone()[0]
+                    alert_context["review_event_max"] = repo.connection.execute(
+                        "SELECT COALESCE(MAX(id),0) FROM review_events"
+                    ).fetchone()[0]
+                    enqueue(repo, run_id, alert_context)
+        safe_process(database)
         LOGGER.info(
             "Execução %s concluída; resultado=%s; anúncios=%s; avisos=%s",
             run_id,
@@ -238,7 +263,7 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
             summary.update(ads_after=summary.get("ads_before", 0), disappeared=None, new=0, reappeared=0)
             for field in ("matching_counts", "queue_counts", "coverage_counts"):
                 summary.pop(field, None)
-            with PipelineRepository(database) as repo:
+            with atomic_database(database), PipelineRepository(database) as repo:
                 repo.finish(
                     run_id,
                     "CANCELLED" if isinstance(exc, (KeyboardInterrupt, SystemExit)) else "FAILED",
@@ -246,6 +271,13 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
                     summary,
                     str(exc),
                 )
+                if not isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                    next_run = repo.connection.execute(
+                        "SELECT next_run_at FROM scheduler_state WHERE id=1 AND status='RUNNING'"
+                    ).fetchone()
+                    alert_context["next_run_at"] = next_run[0] if next_run else None
+                    enqueue(repo, run_id, alert_context)
+            safe_process(database)
         if isinstance(exc, (KeyboardInterrupt, SystemExit)) or run_id is None:
             raise
     finally:

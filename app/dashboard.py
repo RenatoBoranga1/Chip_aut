@@ -13,7 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from services.alert_service import AlertService  # noqa: E402
 from services.dashboard_service import DashboardConfig, DashboardService, filter_rows  # noqa: E402
+from ui.alert_panel import alert_center  # noqa: E402
 from ui.pipeline_panel import automatic_updates, refresh_after_pipeline  # noqa: E402
 from ui.textos import (  # noqa: E402
     ACTIONS,
@@ -41,6 +43,7 @@ PAGES = [
     "Busca global",
     "Histórico",
     "Atualização automática",
+    "Alertas",
 ]
 
 
@@ -249,12 +252,16 @@ def main():
         f"Base {snapshot['base_id']} · {'Somente leitura' if config.read_only else 'Revisões habilitadas'}"
     )
     st.sidebar.button("Atualizar dados")
+    alert_snapshot = AlertService(service.config).snapshot()
+    st.sidebar.caption(f"Alertas: {sum(r['status'] == 'NOVO' for r in alert_snapshot['alerts'])} novos")
     st.title(page)
     st.caption("Identidade, decisões humanas e cobertura do scanner — com histórico preservado.")
     if snapshot["zero_km_warning"]:
         st.warning(ZERO_KM)
     refresh_after_pipeline(service)
-    if page == "Atualização automática":
+    if page == "Alertas":
+        alert_center(service)
+    elif page == "Atualização automática":
         automatic_updates(service, table)
     elif page == "Visão geral":
         cols = st.columns(4)
@@ -358,9 +365,15 @@ def main():
                 "external_id",
             ],
         )
+        related_review = st.session_state.pop("related_review_id", None)
+        review_options = [None, *[r["id"] for r in rows]]
+        if related_review and related_review not in review_options:
+            review_options.append(related_review)
+        if related_review:
+            st.session_state.review_selection = related_review
         selected = st.selectbox(
             "Abrir revisão",
-            [None, *[r["id"] for r in rows]],
+            review_options,
             format_func=lambda i: "Selecione um item" if i is None else f"Revisão #{i}",
             key="review_selection",
         )

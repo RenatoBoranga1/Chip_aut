@@ -1,7 +1,7 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1 a 5, incluindo painel em português e atualização automática.** Parser, normalização,
+**Entrega atual: Milestones 1 a 6, incluindo atualização automática e central de alertas.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
 funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
 preliminar, painel Streamlit e agendamento independente. Ações de desenvolvimento permanecem futuras.
@@ -630,9 +630,84 @@ estado do agendador, mantendo migrations anteriores intactas.
 
 Consulte [RESULTADOS_MILESTONE_5.md](RESULTADOS_MILESTONE_5.md).
 
+## Milestone 6 — Central de alertas
+
+A página **Alertas** apresenta eventos operacionais persistidos, com prioridade,
+leitura, filtros, histórico e links para anúncio, revisão e execução de origem.
+O indicador lateral mostra quantos alertas estão novos. Marcar como lido/não lido,
+arquivar, resolver e reabrir altera apenas o alerta; nunca matching, cobertura ou
+decisões humanas. `MOTO_READ_ONLY=1` bloqueia essas ações também no serviço.
+
+O pipeline registra uma entrega pendente na mesma transação da execução concluída.
+Depois da publicação, `services/alert_service.py` detecta os eventos e
+`database/alert_repository.py` persiste o lote em uma transação separada. Uma falha
+na geração preserva a coleta válida, registra diagnóstico específico e deixa a
+entrega pendente. A próxima atualização tenta novamente antes de coletar. Também
+é possível reprocessar sem acessar o catálogo:
+
+```powershell
+python -m app.alerts --db data/coverage.sqlite3
+```
+
+Tipos: novo anúncio, possível nova moto fora da base, sem suporte, suporte parcial,
+novo item de revisão de alta prioridade, decisão desatualizada, falha de coleta,
+falha de atualização, coleta incompleta/atualização com avisos e nova versão da base.
+Anúncios antigos não são anunciados novamente como novos na instalação desta etapa.
+Condições atuais de suporte e provável ausência podem gerar o primeiro alerta.
+Uma nova versão é identificada no pipeline comparando a base da cobertura anterior.
+
+“Possível nova moto” exige anúncio novo com identidade interpretada e não encontrada,
+ou o diagnóstico conservador de provável ausência já existente. Não confirma
+ausência nem falta de suporte. SEM_SUPORTE e SUPORTE_PARCIAL exigem identidade
+vinculada sem revisão pendente e status efetivo da base. Candidatos fuzzy não
+autorizam esses alertas. Memórias continuam submetidas às regras do Milestone 3.2.
+
+Prioridades: **Informativo**, **Atenção**, **Alta prioridade**, **Crítico**.
+Anúncio novo suportado é informativo; novo anúncio que precisa de atenção recebe
+Atenção. Possível nova moto, suporte incompleto e revisão/decisão desatualizada são
+de alta prioridade. Falhas começam em Atenção, sobem para Alta após três execuções
+consecutivas e Crítico após cinco. Tentativas dentro da mesma execução contam uma
+vez; a sequência da coleta é separada da sequência do pipeline. Sucesso interrompe
+a sequência; solicitações ignoradas e canceladas não contam como falha concluída.
+
+Configuração central em `config/alerts.json`, substituível por `MOTO_ALERTS_CONFIG`:
+
+- `enabled`: habilitação geral; `false` registra a entrega como desabilitada e não
+  cria alertas retroativos ao reativar.
+- `failure_high_after` / `failure_critical_after`: limiares crescentes positivos.
+- `new_ad_enabled`, `probable_missing_enabled`, `unsupported_enabled`,
+  `partial_support_enabled`, `high_priority_review_enabled`, `stale_decision_enabled`,
+  `base_version_enabled`, `failure_enabled`, `partial_collection_enabled`: regras individuais.
+
+A configuração usada fica registrada no resumo da entrega. Uma configuração
+inválida deixa a entrega pendente e não invalida o resultado da coleta.
+
+A chave estável combina tipo, parceiro e entidade relevante; suporte/possível
+ausência incluem a versão da base. O mesmo anúncio pode justificar tipos diferentes.
+Repetir uma entrega não altera alertas nem contadores. Uma observação realmente
+nova da mesma condição atualiza a última ocorrência e o contador. Novidade de anúncio,
+entrada de revisão, invalidação de decisão e versão da base são eventos únicos.
+Falhas e avisos de execução contam uma ocorrência por execução concluída.
+
+Estados: **Novo**, **Lido**, **Arquivado** e **Resolvido**. Condição contínua não
+reabre automaticamente um alerta arquivado/resolvido. Após uma execução válida deixar
+de observar a condição, seu retorno em nova observação reabre o mesmo alerta como
+Novo. Isso conserva ocorrências e histórico; a resolução manual não afirma que o
+problema técnico foi corrigido. Mudança de versão pode justificar outra chave.
+Também é possível reabrir explicitamente. Não há exclusão automática.
+
+Filtros: situação, prioridade, tipo, fabricante, parceiro, período da última
+ocorrência e leitura. Ordenação inicial: severidade, não lidos e recentes; há
+ordenações por data ou título. Horários dos alertas são UTC, explicitamente rotulados.
+Detalhes são evidência da ocorrência, não promessa de cobertura atual.
+
+A migration aditiva `009_alerts.sql` mantém alertas, ocorrências, histórico imutável
+de ações e entregas pendentes. Migrations anteriores não foram alteradas.
+Somente o canal interno está ativo. Consulte [RESULTADOS_MILESTONE_6.md](RESULTADOS_MILESTONE_6.md).
+
 ## Próximas etapas
 
-Notificações, novos parceiros, atualização automática da planilha, autenticação,
+Notificações externas, novos parceiros, atualização automática da planilha, autenticação,
 serviço Windows definitivo e deploy permanecem fora desta entrega.
 As validações anteriores continuam documentadas nos respectivos arquivos
 `VALIDACAO*` e `RESULTADOS_MILESTONE_3*`.
