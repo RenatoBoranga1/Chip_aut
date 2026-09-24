@@ -117,7 +117,7 @@ def alert_center(dashboard):
     ad = details.get("advertisement", {})
     if ad:
         photo_ad = {**ad, **dashboard.image_metadata(ad)}
-        vehicle_photo(photo_ad, details, alert_type=item["alert_type"])
+        vehicle_photo(photo_ad, details, detail=True, alert_type=item["alert_type"])
         if photo_ad.get("primary_image_url"):
             st.caption("Foto da observação mais recente deste anúncio; a evidência do alerta permanece histórica.")
         st.write(

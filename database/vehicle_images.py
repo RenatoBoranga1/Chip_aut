@@ -43,4 +43,11 @@ def latest_vehicle_image(connection, ad):
         "WHERE partner=? AND external_id=? AND identity_signature=?",
         (ad["partner"], ad["external_id"], signature(ad)),
     ).fetchone()
-    return dict(zip(IMAGE_FIELDS, row)) if row else defaults
+    result = dict(zip(IMAGE_FIELDS, row)) if row else defaults
+    previous = connection.execute(
+        "SELECT primary_image_url,image_source FROM partner_vehicle_image_history WHERE partner=? AND external_id=? AND identity_signature=? AND primary_image_url IS NOT NULL ORDER BY id DESC LIMIT 4",
+        (ad["partner"], ad["external_id"], signature(ad)),
+    ).fetchall()
+    result["cached_image_urls"] = list(dict.fromkeys(url for url, _ in previous))[:3]
+    result["detail_image_url"] = next((url for url, source in previous if source == "detail"), None)
+    return result

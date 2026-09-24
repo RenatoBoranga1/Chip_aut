@@ -17,6 +17,11 @@ class VehicleImageConfig:
     show_for_confirmed_missing: bool = True
     show_for_high_priority_review: bool = True
     cache_enabled: bool = True
+    cache_ttl_hours: float = 72
+    cache_max_mb: float = 250
+    failure_retry_seconds: float = 300
+    max_concurrent_downloads: int = 4
+    max_redirects: int = 2
     thumbnail_width: int = 140
     request_timeout_seconds: float = 3
     max_image_bytes: int = 5_000_000
@@ -32,11 +37,22 @@ class VehicleImageConfig:
             ("request_timeout_seconds", 0.1, 5),
             ("max_image_bytes", 1024, 5_000_000),
             ("detail_fallback_limit", 0, 8),
+            ("cache_ttl_hours", 0.001, 8760),
+            ("cache_max_mb", 0.001, 2048),
+            ("failure_retry_seconds", 1, 3600),
+            ("max_concurrent_downloads", 1, 4),
+            ("max_redirects", 0, 2),
         ):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not minimum <= value <= maximum:
                 raise ValueError("Limite de imagem inválido")
-            if name != "request_timeout_seconds" and not isinstance(value, int):
+            if name in {
+                "thumbnail_width",
+                "max_image_bytes",
+                "detail_fallback_limit",
+                "max_concurrent_downloads",
+                "max_redirects",
+            } and not isinstance(value, int):
                 raise ValueError("Limite de imagem deve ser inteiro")
 
 

@@ -68,6 +68,8 @@ def flat(ad, automatic, effective, review=None, base=None):
         "mileage": ad.get("mileage"),
         "source_url": ad.get("source_url"),
         **{key: ad.get(key) for key in IMAGE_FIELDS},
+        "cached_image_urls": ad.get("cached_image_urls", []),
+        "detail_image_url": ad.get("detail_image_url"),
         "first_seen": ad.get("first_seen") or (review.get("created_at") if review else ad.get("collected_at")),
         "last_seen": ad.get("last_seen") or (review["last_seen"] if review else ad.get("collected_at")),
         "automatic_type": automatic["match_type"],

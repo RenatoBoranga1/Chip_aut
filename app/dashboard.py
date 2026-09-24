@@ -33,7 +33,7 @@ from ui.textos import (  # noqa: E402
     validation_message,
     value,
 )
-from ui.vehicle_images import photo_cells, vehicle_photo  # noqa: E402
+from ui.vehicle_images import photo_cells, photo_filter, photo_metrics, vehicle_photo  # noqa: E402
 
 PAGES = [
     "Visão geral",
@@ -61,10 +61,22 @@ def table(rows, key, columns=None, images=False):
     st.caption(f"{len(rows)} registros · página {page} de {pages}")
     visible = rows[(page - 1) * size : page * size]
     data = [
-        row_labels({k: v for k, v in row.items() if k not in IMAGE_FIELDS and (columns is None or k in columns)})
+        row_labels(
+            {
+                k: v
+                for k, v in row.items()
+                if k
+                not in {*IMAGE_FIELDS, "cached_image_urls", "detail_image_url", "thumbnail_url", "listing_image_url"}
+                and (columns is None or k in columns)
+            }
+        )
         for row in visible
     ]
     if images and config.enabled:
+        st.markdown(
+            f"<style>[data-testid='stTable'] img {{min-width:100px; width:{config.thumbnail_width}px; max-width:160px;}}</style>",
+            unsafe_allow_html=True,
+        )
         photos = photo_cells(visible, config)
         data = [{"Foto": photo, **row} for row, photo in zip(data, photos)]
     for row in data:
@@ -358,7 +370,8 @@ def main():
         else:
             st.info("Nenhuma coleta disponível.")
     elif page == "Fila de revisão":
-        rows = filtered(snapshot["queue"], "queue")
+        image_indicators = st.container()
+        rows = photo_filter(filtered(snapshot["queue"], "queue"), "queue")
         table(
             rows,
             "queue",
@@ -368,18 +381,15 @@ def main():
                 "state",
                 "manufacturer",
                 "model",
-                "version",
                 "year",
-                "partner",
                 "automatic_type",
-                "score",
                 "coverage",
-                "last_seen",
-                "external_id",
             ],
             images=True,
         )
         related_review = st.session_state.pop("related_review_id", None)
+        with image_indicators:
+            photo_metrics(snapshot["queue"])
         review_options = [None, *[r["id"] for r in rows]]
         if related_review and related_review not in review_options:
             review_options.append(related_review)
@@ -434,8 +444,11 @@ def main():
         )
     elif page == "Possíveis novas motos":
         st.info("Ausência provável é uma hipótese sobre esta versão da base, não uma confirmação de falta de suporte.")
-        for title, rows in service.opportunities().items():
+        opportunities = service.opportunities()
+        image_indicators = st.container()
+        for title, rows in opportunities.items():
             st.subheader(title)
+            rows = photo_filter(rows, title)
             table(
                 rows,
                 title,
@@ -443,19 +456,16 @@ def main():
                     "id",
                     "manufacturer",
                     "model",
-                    "version",
                     "year",
-                    "partner",
                     "first_seen",
-                    "last_seen",
-                    "external_id",
                     "priority",
                     "effective_type",
-                    "evidence",
                     "source_url",
                 ],
                 images=True,
             )
+        with image_indicators:
+            photo_metrics([r for group in opportunities.values() for r in group])
     elif page == "Base do scanner":
         text = st.text_input("Buscar na base", placeholder="Fabricante, modelo, ano ou chave")
         rows = service.scanner(text)

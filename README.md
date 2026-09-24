@@ -705,6 +705,68 @@ A migration aditiva `009_alerts.sql` mantém alertas, ocorrências, histórico i
 de ações e entregas pendentes. Migrations anteriores não foram alteradas.
 Somente o canal interno está ativo. Consulte [RESULTADOS_MILESTONE_6.md](RESULTADOS_MILESTONE_6.md).
 
+## Miniaturas — Milestone 6.1.1
+
+Fotos são apoio visual, sem participação em identidade, matching, suporte, cobertura
+ou prioridade. A migration aditiva `010_vehicle_images.sql` mantém a observação
+mais recente e o histórico das URLs por identidade. Uma troca de foto não recria
+pendências. A navegação do dashboard continua somente leitura no SQLite.
+
+Fila de revisão e Possíveis novas motos oferecem **Todas**, **Com foto** e **Sem foto**.
+O filtro considera a URL informada pelo anúncio, não promete que o servidor remoto
+esteja disponível. Somente os oito itens de cada bloco paginado são considerados
+para carregamento, respeitando os critérios de relevância existentes. No detalhe
+da revisão ou de alertas relevantes, **Ampliar foto** solicita uma versão de até
+420 px somente quando marcada. A listagem usa 140 px por padrão.
+
+O carregamento tenta a miniatura informada, a imagem principal já conhecida e uma
+foto anterior válida armazenada localmente da mesma identidade. Nunca abre a página
+do anúncio durante a renderização. Sem URL, mostra **Foto não disponível**; se houver
+URL e o carregamento falhar, mostra **Não foi possível carregar a foto**. Ambas usam
+um placeholder neutro. O fallback de coleta de páginas individuais do Milestone 6.1
+continua separado e limitado; a interface não inicia essa coleta.
+
+Configuração em `config/vehicle_images.json`, substituível por `MOTO_IMAGES_CONFIG`:
+
+| Opção | Padrão | Efeito |
+| --- | --- | --- |
+| `cache_enabled` | `true` | Persistência de miniaturas em `data/cache/images` |
+| `cache_ttl_hours` | `72` | Validade desde a gravação, sem renovação pela leitura |
+| `cache_max_mb` | `250` | Limite em MiB dos arquivos gerenciados |
+| `failure_retry_seconds` | `300` | Intervalo antes de repetir uma URL que falhou neste processo |
+| `max_concurrent_downloads` | `4` | Concorrência de downloads, limitada a quatro |
+| `max_redirects` | `2` | Máximo de redirecionamentos validados |
+| `request_timeout_seconds` | `3` | Prazo de requisição configurado, máximo de cinco segundos |
+| `max_image_bytes` | `5000000` | Limite do conteúdo recebido |
+
+Nomes em SHA-256 evitam caminhos derivados de URLs. A limpeza automática remove
+expirados e depois os mais antigos para respeitar a quota. Só atua em arquivos
+gerenciados diretamente no diretório, sem seguir links ou percorrer subpastas.
+Arquivos alheios são preservados e não entram na quota. Gravações são atômicas e
+coordenadas por bloqueio; disco indisponível não impede exibição em memória.
+Cache corrompido é descartado. O cache e os logs não são versionados no Git.
+A memória mantém até 256 resultados; respostas válidas por até cinco minutos,
+respeitando a validade configurada. Desativar o cache em disco preserva essa memória.
+
+JPEG, PNG e WebP exigem assinatura binária e decodificação válida, além do tipo HTTP;
+HTML/SVG/GIF são rejeitados. Permanecem as restrições HTTP/HTTPS, origens observadas,
+endereços públicos, tamanho, redirecionamentos e dimensões máximas de 20 megapixels.
+Não há execução de conteúdo, OCR, reconhecimento, upload ou galeria.
+
+**Disponibilidade de fotos** mostra casos relevantes com/sem URL e falhas nos últimos
+15 minutos deste processo. Cada bloco informa a porcentagem efetivamente exibida.
+Não são indicadores de cobertura. `logs/vehicle_images.log` registra duração do lote,
+downloads, reutilizações, faltas e falhas, com rotação local (1 MB, duas cópias), sem
+URLs ou telemetria externa. Os contadores reiniciam com o processo; tentativas
+malsucedidas em memória não geram nova falha a cada rerender.
+
+Limitações: o parceiro pode remover fotos, a URL pode continuar igual após trocar
+o conteúdo, e nesse caso a atualização depende da expiração. A ampliação não inventa
+um endpoint de alta resolução. O servidor pode fornecer um arquivo maior que a
+miniatura final, sempre sujeito ao limite de bytes. A quota é de armazenamento em
+disco; concorrência e memória são limitadas por processo. Consulte
+[RESULTADOS_MILESTONE_6_1_1.md](RESULTADOS_MILESTONE_6_1_1.md).
+
 ## Próximas etapas
 
 Notificações externas, novos parceiros, atualização automática da planilha, autenticação,
