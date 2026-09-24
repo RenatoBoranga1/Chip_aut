@@ -18,6 +18,7 @@ from services.alert_service import AlertService  # noqa: E402
 from services.dashboard_service import DashboardConfig, DashboardService, filter_rows  # noqa: E402
 from services.vehicle_image_config import load_image_config  # noqa: E402
 from ui.alert_panel import alert_center  # noqa: E402
+from ui.development_panel import development_page, offer_creation, origin_picker  # noqa: E402
 from ui.pipeline_panel import automatic_updates, refresh_after_pipeline  # noqa: E402
 from ui.textos import (  # noqa: E402
     ACTIONS,
@@ -47,6 +48,7 @@ PAGES = [
     "Histórico",
     "Atualização automática",
     "Alertas",
+    "Motos para desenvolvimento",
 ]
 
 
@@ -125,6 +127,7 @@ def detail(service, item_id):
     item = service.detail(item_id)
     ad, auto, effective = item["advertisement"], item["automatic"], item["effective"]
     st.subheader(f"Revisão #{item_id} · {ad['manufacturer']} {ad['model']}")
+    offer_creation(service, "review", item_id, f"review_{item_id}")
     vehicle_photo(
         ad,
         {"effective_type": effective["match_type"], "state": item["state"], "priority": item["priority"]},
@@ -284,7 +287,9 @@ def main():
     if snapshot["zero_km_warning"]:
         st.warning(ZERO_KM)
     refresh_after_pipeline(service)
-    if page == "Alertas":
+    if page == "Motos para desenvolvimento":
+        development_page(service)
+    elif page == "Alertas":
         alert_center(service)
     elif page == "Atualização automática":
         automatic_updates(service, table)
@@ -479,6 +484,7 @@ def main():
             format_func=lambda k: k or "Selecione uma moto",
         )
         if key:
+            offer_creation(service, "scanner", key, "scanner_" + key)
             moto = next(r for r in rows if r["key"] == key)
             systems(moto)
             table(
@@ -517,6 +523,8 @@ def main():
                         "state",
                     ],
                 )
+                if name in {"Anúncios", "Scanner"}:
+                    origin_picker(service, rows[:50], "search_" + name, scanner=name == "Scanner")
     else:
         page_number = st.number_input("Página do histórico", min_value=1, value=1, step=1)
         history = service.history(page_number - 1)
@@ -539,6 +547,18 @@ def main():
         table(history["decisions"], "decisions")
         st.subheader("Ocorrências da fila")
         table(history["occurrences"], "occurrences")
+
+    if page in {"Sem suporte", "Suporte parcial", "Possíveis novas motos"}:
+        source_rows = (
+            [r for group in opportunities.values() for r in group]
+            if page == "Possíveis novas motos"
+            else [
+                r
+                for r in snapshot["stock"]
+                if r["coverage"] == ("SEM_SUPORTE" if page == "Sem suporte" else "SUPORTE_PARCIAL")
+            ]
+        )
+        origin_picker(service, source_rows, "page_" + page)
 
 
 if __name__ == "__main__":

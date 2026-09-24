@@ -400,5 +400,9 @@ class AlertService:
     def transition(self, alert_id, target):
         if self.config.read_only:
             raise ValueError("Painel em modo somente leitura")
+        if alert_id < 0:
+            from database.development_alert_repository import transition_alert
+
+            return transition_alert(self.config.database, alert_id, target, self.config.partner)
         with AlertRepository(self.config.database) as repo:
             repo.transition(alert_id, target, self.config.partner)

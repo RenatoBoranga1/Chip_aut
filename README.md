@@ -1,10 +1,10 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1 a 6, incluindo atualização automática e central de alertas.** Parser, normalização,
+**Entrega atual: Milestones 1 a 7, incluindo alertas, miniaturas e gestão de desenvolvimento.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
 funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
-preliminar, painel Streamlit e agendamento independente. Ações de desenvolvimento permanecem futuras.
+preliminar, painel Streamlit, agendamento independente e acompanhamento de necessidades confirmadas para desenvolvimento.
 
 ## WR Motos — coleta, histórico e cobertura
 
@@ -766,6 +766,125 @@ um endpoint de alta resolução. O servidor pode fornecer um arquivo maior que a
 miniatura final, sempre sujeito ao limite de bytes. A quota é de armazenamento em
 disco; concorrência e memória são limitadas por processo. Consulte
 [RESULTADOS_MILESTONE_6_1_1.md](RESULTADOS_MILESTONE_6_1_1.md).
+
+## Motos para desenvolvimento — Milestone 7
+
+Esta fila acompanha o trabalho depois da detecção e revisão. **Não encontrada na
+base**, **sem suporte** e **necessidade de desenvolvimento** são conceitos diferentes.
+Nenhuma tarefa é criada automaticamente: uma pessoa deve informar nome, motivo,
+justificativa e confirmar explicitamente a inclusão. Essa confirmação não cria uma
+decisão de identidade na fila de revisão e não altera a planilha original.
+
+Arquitetura: `dashboard/CLI → DevelopmentService → DevelopmentRepository → SQLite`.
+A migration aditiva `011_development.sql` mantém itens, origens, ocorrências,
+histórico, idempotência e avisos de desenvolvimento. Migrations anteriores permanecem
+intactas. Navegação é somente leitura; a primeira escrita autorizada aplica a
+migration, ou ela pode ser aplicada explicitamente por `app.development init`.
+
+### Inclusão e deduplicação
+
+Há pontos de inclusão no detalhe da revisão, em alertas de motos, possíveis novas
+motos, páginas sem suporte/suporte parcial, inspeção do scanner, busca global e busca
+manual na nova página. A origem é relida do banco antes da inclusão; dados enviados
+pelo formulário não podem fabricar suporte ou uma ausência confirmada.
+
+Motivos: ausência confirmada, sem suporte, suporte parcial, revisão de alta prioridade,
+novo modelo e inclusão manual. Os motivos que afirmam ausência/suporte exigem evidência
+efetiva atual. Inclusão manual e novo modelo são declarações do operador para
+acompanhamento, sem confirmação automática de identidade ou cobertura.
+
+Um único item ativo por identidade normalizada estritamente (fabricante, modelo,
+versão e ano). Quando a chave do scanner está validada, a identidade da entrada é
+usada. A mesma identidade explícita pode reunir vários parceiros/anúncios, cada um
+com primeiras/últimas aparições e ocorrências. Não são usados fuzzy, imagens ou
+novos aliases para unir tarefas. Casos ambíguos, pendentes de matching ou com avisos
+de interpretação ficam restritos ao anúncio. Nova versão/ano não herda a tarefa.
+Repetir a mesma observação não aumenta contagens; nova origem/observação confirmada
+é registrada no item existente. A fila não coleta origens novas automaticamente.
+
+Uma tarefa encerrada permite nova necessidade futura. Reabrir uma antiga é recusado
+se já existir outra ativa da mesma identidade. Chaves de solicitação tornam comandos
+repetidos idempotentes. Revisões numéricas impedem sobrescrita por formulário antigo.
+
+### Situações e auditoria
+
+| Situação | Próximas situações permitidas |
+| --- | --- |
+| Nova | Em análise, Descartada |
+| Em análise | Aguardando informações, Dados coletados, Descartada |
+| Aguardando informações | Em análise, Dados coletados, Descartada |
+| Dados coletados | Em análise, Em desenvolvimento, Descartada |
+| Em desenvolvimento | Aguardando informações, Em validação, Descartada |
+| Em validação | Em desenvolvimento, Concluída, Descartada |
+| Concluída / Descartada | Em análise, por reabertura justificada |
+
+Toda alteração exige autor e justificativa: situação, prioridade, responsável,
+informações técnicas, notas e checklist. Histórico e ocorrências são imutáveis no
+banco. Notas acrescentam conteúdo; não apagam anteriores. Concluir exige responsável
+atribuído e registra data, justificativa e versão da base/scanner opcional. Marcar
+“Base/scanner atualizado” no checklist é apenas declaração operacional, não evidência
+de suporte. Nenhuma ação escreve em `RESUMO_MDL.xlsx` ou atualiza cobertura.
+
+O detalhe separa a evidência da inclusão da versão atual da base. Ausência humana
+expirada não é apresentada como vigente. Uma identidade estrita candidata numa nova
+base produz **Pode ter sido atendido pela nova base**, sem fechar a tarefa, confirmar
+o vínculo ou atribuir suporte. A pessoa deve conferir a entrada e a revisão.
+
+### Painel, checklist e avisos
+
+Página **Motos para desenvolvimento**: totais por situação, total ativo, alta
+prioridade, filtros de situação/prioridade/responsável/fabricante/ano/motivo/parceiro,
+com/sem foto e texto; ordenação por prioridade, atualização, antiguidade, modelo e
+situação. Consultas de lista trazem oito itens por página, sem carregar notas e
+históricos de todos. Detalhes paginam origens e eventos em grupos de 30.
+Miniaturas, cache, fallback e ampliação reutilizam integralmente o Milestone 6.1.1.
+
+Checklist configurável: identidade, disponibilidade do veículo, informações técnicas,
+comunicação, desenvolvimento, teste, resultado e atualização do scanner. Cada item
+conserva os rótulos vigentes quando foi criado. Campos técnicos opcionais: protocolo,
+ECU, sistema eletrônico, conector, cabo, observações, fornecedor e data AAAA-MM-DD.
+
+Configuração: `config/development.json`, substituível por `MOTO_DEVELOPMENT_CONFIG`.
+`enabled` controla novas ações; `alerts_enabled` controla emissão de avisos;
+`assignees` permite restringir responsáveis (lista vazia aceita nome livre);
+`checklist` define os itens novos; `stale_days` usa chaves de estado em maiúsculas.
+Padrões: aguardando informações >7 dias, desenvolvimento >30 e validação >14.
+São dias completos desde a entrada no estado; notas não reiniciam esse prazo.
+
+A central de alertas existente também exibe inclusão de alta prioridade, entrada
+em validação, conclusão e prazo excedido. São notificações de desenvolvimento com
+histórico próprio, sem criar execuções fictícias do pipeline. Eventos transacionais
+e chaves únicas evitam repetição. Prazo vencido gera Atenção, nunca falha automática.
+O scheduler verifica prazos no máximo uma vez por hora quando está ativo; a CLI
+permite verificação explícita sem coletar catálogo. Navegação calcula idade e aviso
+visual sem escrever no banco. Resolver um alerta não conclui o desenvolvimento.
+
+### Administração por CLI
+
+Exemplos ilustrativos: substitua IDs/chaves/revisões pelos valores consultados.
+Não execute os exemplos de criação no banco real sem avaliar a necessidade.
+
+```powershell
+python -m app.development --db data/coverage.sqlite3 init
+python -m app.development list --status new
+python -m app.development --json show 10
+python -m app.development create --source review --id 123 --reason manual --confirm --actor "Renato" --justification "Necessidade avaliada" --request-key "inclusao-123"
+python -m app.development status 10 --to under_analysis --revision 1 --actor "Renato" --justification "Iniciada conferência"
+python -m app.development assign 10 --to "Renato" --revision 2 --actor "Renato" --justification "Responsável definido"
+python -m app.development note 10 --text "Aguardando dados do parceiro" --revision 3 --actor "Renato" --justification "Contato realizado"
+python -m app.development scan
+```
+
+`create --source` aceita `review`, `alert`, `advertisement` e `scanner`; `--partner`
+seleciona a origem. `priority`, `technical --data` e `checklist --data` também estão
+disponíveis; os dois últimos recebem objeto JSON. `status --base-version` registra
+a versão informada na conclusão. `list --page` e `show --page` usam páginas a partir
+de zero. `--db`, `--json` e `--read-only` precedem o subcomando. `MOTO_READ_ONLY=1`
+é respeitado pela CLI e pelo dashboard. O nome do operador é declarado localmente;
+não há autenticação corporativa ou controle de permissões por pessoa nesta etapa.
+
+Consulte [RESULTADOS_MILESTONE_7.md](RESULTADOS_MILESTONE_7.md) para testes, validação
+em banco temporário e limitações. O banco real não recebe tarefas de demonstração.
 
 ## Próximas etapas
 

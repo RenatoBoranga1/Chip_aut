@@ -88,6 +88,9 @@ def serve(database, config_path=DEFAULT_CONFIG, *, stop=None, clock=utcnow, runn
                         done.set()
                         thread.join(timeout=35)
                 ticks += 1
+                from services.development_alerts import safe_scan
+
+                safe_scan(database)
                 if max_ticks is not None and ticks >= max_ticks:
                     break
                 stop.wait(config.heartbeat_seconds)

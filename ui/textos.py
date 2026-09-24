@@ -6,6 +6,10 @@ import re
 LOGGER = logging.getLogger(__name__)
 
 ALERT_TYPES = {
+    "DEV_NEW": "Desenvolvimento: novo item prioritário",
+    "DEV_STALE": "Desenvolvimento: acompanhar prazo",
+    "DEV_VALIDATION": "Desenvolvimento: em validação",
+    "DEV_COMPLETED": "Desenvolvimento: concluído",
     "NOVO_ANUNCIO": "Novo anúncio",
     "POSSIVEL_NOVA_MOTO": "Possível nova moto",
     "SEM_SUPORTE": "Sem suporte",

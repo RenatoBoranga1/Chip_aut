@@ -71,6 +71,8 @@ def should_show_vehicle_image(row, config=None, *, alert_type=None):
     config = config or load_image_config()
     if not config.enabled:
         return False
+    if row.get("development_item"):
+        return True
     kind = row.get("effective_type") or row.get("matching")
     if kind == "CONFIRMADO_AUSENTE_NA_BASE":
         return config.show_for_confirmed_missing

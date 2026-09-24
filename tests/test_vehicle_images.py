@@ -405,7 +405,7 @@ def test_old_database_and_old_payload_compatibility(tmp_path):
             db.executescript(migration.read_text(encoding="utf-8"))
             db.execute("INSERT OR IGNORE INTO schema_version VALUES (?)", (int(migration.name[:3]),))
     with PartnerRepository(path) as repo:
-        assert repo.connection.execute("SELECT max(version) FROM schema_version").fetchone()[0] == 10
+        assert repo.connection.execute("SELECT max(version) FROM schema_version").fetchone()[0] == 11
     import_base(path, [motorcycle()])
     cid = collect(path, [ad()])
     with sqlite3.connect(path) as db:

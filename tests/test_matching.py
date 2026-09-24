@@ -284,6 +284,7 @@ def test_schema_migration_preserves_v1_and_is_idempotent(tmp_path):
                 (8,),
                 (9,),
                 (10,),
+                (11,),
             ]
             assert repo.connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
             assert not repo.connection.execute("PRAGMA foreign_key_check").fetchall()

@@ -137,10 +137,16 @@ def read_alerts(database, partner=None):
             item["details"] = json.loads(item.pop("details_json"))
             result.append(item)
         pending = db.execute("SELECT COUNT(*) FROM alert_deliveries WHERE processed_at IS NULL").fetchone()[0]
-        return {"alerts": result, "pending": pending}
+        from database.development_alert_repository import read_development_alerts
+
+        return {"alerts": result + read_development_alerts(database, partner), "pending": pending}
 
 
 def read_alert_history(database, alert_id, partner):
+    if alert_id < 0:
+        from database.development_alert_repository import development_alert_history
+
+        return development_alert_history(database, alert_id, partner)
     with closing(sqlite3.connect(Path(database).resolve().as_uri() + "?mode=ro", uri=True)) as db:
         db.row_factory = sqlite3.Row
         return [

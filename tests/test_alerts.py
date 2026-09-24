@@ -374,7 +374,7 @@ def test_dashboard_actions_and_portuguese(setup, monkeypatch):
 
 def test_migration_preserves_old_tables_and_integrity(setup):
     with sqlite3.connect(setup[0]) as db:
-        assert db.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 10
+        assert db.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 11
         assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert not db.execute("PRAGMA foreign_key_check").fetchall()
 

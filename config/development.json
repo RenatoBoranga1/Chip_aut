@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "alerts_enabled": true,
+  "stale_days": {"WAITING_INFORMATION": 7, "IN_DEVELOPMENT": 30, "IN_VALIDATION": 14},
+  "assignees": [],
+  "checklist": {
+    "identity": "Identidade confirmada",
+    "available": "Veículo disponível no parceiro",
+    "information": "Informações técnicas coletadas",
+    "communication": "Comunicação validada",
+    "started": "Desenvolvimento iniciado",
+    "tested": "Teste realizado",
+    "validated": "Resultado validado",
+    "updated": "Base/scanner atualizado"
+  }
+}

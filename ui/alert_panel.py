@@ -82,7 +82,7 @@ def alert_center(dashboard):
     st.table(
         [
             {
-                "Alerta": r["id"],
+                "Alerta": r["id"] if r["id"] > 0 else f"Desenvolvimento {abs(r['id'])}",
                 "Prioridade": ALERT_SEVERITIES[r["severity"]],
                 "Data": r["created_at"],
                 "Título": r["title"],
@@ -98,7 +98,9 @@ def alert_center(dashboard):
     selected = st.selectbox(
         "Abrir alerta",
         [None, *[r["id"] for r in visible]],
-        format_func=lambda n: f"Alerta #{n}" if n else "Selecione um alerta",
+        format_func=lambda n: (
+            (f"Alerta #{n}" if n > 0 else f"Desenvolvimento #{abs(n)}") if n else "Selecione um alerta"
+        ),
         key="alert_selection",
     )
     if selected is None:
@@ -115,6 +117,12 @@ def alert_center(dashboard):
     if not item["condition_active"]:
         st.info("Esta condição deixou de ser observada. O histórico permanece disponível.")
     ad = details.get("advertisement", {})
+    from ui.development_panel import offer_creation, open_item
+
+    if details.get("development_item_id"):
+        st.button("Abrir item de desenvolvimento", on_click=open_item, args=(details["development_item_id"],))
+    elif ad:
+        offer_creation(dashboard, "alert", selected, f"alert_{selected}")
     if ad:
         photo_ad = {**ad, **dashboard.image_metadata(ad)}
         vehicle_photo(photo_ad, details, detail=True, alert_type=item["alert_type"])
@@ -161,20 +169,22 @@ def alert_center(dashboard):
         )
         for warning, count in details.get("warnings", {}).items():
             st.write(f"{value(warning)}: {count}")
-    st.caption(
-        f"Execução {item['pipeline_run_id']} · Coleta {item['collection_run_id'] or 'Não publicada'} · Anúncio {item['external_id'] or 'Não se aplica'}"
-    )
+    if item["pipeline_run_id"]:
+        st.caption(
+            f"Execução {item['pipeline_run_id']} · Coleta {item['collection_run_id'] or 'Não publicada'} · Anúncio {item['external_id'] or 'Não se aplica'}"
+        )
     if item["review_item_id"]:
         st.button(
             "Abrir item na fila",
             on_click=navigate,
             args=("Fila de revisão", "related_review_id", item["review_item_id"]),
         )
-    st.button(
-        "Abrir execução relacionada",
-        on_click=navigate,
-        args=("Atualização automática", "related_pipeline_id", item["pipeline_run_id"]),
-    )
+    if item["pipeline_run_id"]:
+        st.button(
+            "Abrir execução relacionada",
+            on_click=navigate,
+            args=("Atualização automática", "related_pipeline_id", item["pipeline_run_id"]),
+        )
     st.caption("Estas ações alteram somente o alerta. Não modificam correspondência, cobertura ou decisões humanas.")
     actions = (
         [("Marcar como lido", "LIDO"), ("Marcar como não lido", "NOVO")]
