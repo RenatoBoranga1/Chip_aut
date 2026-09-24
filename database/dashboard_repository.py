@@ -6,6 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from database.review_repository import ReviewRepository
+from database.vehicle_images import latest_vehicle_image
 from matching.review_policy import load_policy, priority
 
 
@@ -54,11 +55,12 @@ class DashboardRepository(ReviewRepository):
             item = dict(zip((c[0] for c in cursor.description), row))
             for field in ("identity", "advertisement", "automatic"):
                 item[field] = json.loads(item.pop(field + "_json"))
+            item["advertisement"].update(latest_vehicle_image(self.connection, item["advertisement"]))
             results.append(self.preview(item))
         return results
 
     def advertisements(self, partner):
-        return [
+        rows = [
             {**json.loads(row[0]), "first_seen": row[1], "last_seen": row[2], "collection_id": row[3]}
             for row in self.connection.execute(
                 "SELECT json_remove(payload_json,'$.raw_data','$.raw_text'),first_seen_at,last_seen_at,latest_collection_id "
@@ -66,6 +68,9 @@ class DashboardRepository(ReviewRepository):
                 (partner,),
             )
         ]
+        for ad in rows:
+            ad.update(latest_vehicle_image(self.connection, ad))
+        return rows
 
     def automatic_coverage(self, collection_ids):
         if not collection_ids:
@@ -160,6 +165,7 @@ class DashboardRepository(ReviewRepository):
         if item["partner"] != partner:
             raise ValueError("Item não pertence ao parceiro selecionado")
         item = self.preview(item)
+        item["advertisement"].update(latest_vehicle_image(self.connection, item["advertisement"]))
         item["advertisement"].pop("raw_data", None)
         item["history"] = self._decisions(item)
         if self.connection.execute("SELECT 1 FROM sqlite_master WHERE name='review_decision_transitions'").fetchone():

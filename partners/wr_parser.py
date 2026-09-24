@@ -3,6 +3,7 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
+from partners.images import extract_image
 from partners.models import PartnerMotorcycle
 
 ORIGIN = "https://www.wrmotos.com.br"
@@ -93,6 +94,7 @@ def interpret_card(card, brands, timestamp):
     mileage_match = re.search(r"\bKM\s*:\s*([\d.]+)\b", raw_text, re.I)
     price = price_match.group(1).replace(".", "").replace(",", ".") if price_match else None
     mileage = int(mileage_match.group(1).replace(".", "")) if mileage_match else None
+    photo, rejected = extract_image(card, CATALOG_URL)
     return PartnerMotorcycle(
         "wr_motos",
         external_id,
@@ -108,7 +110,14 @@ def interpret_card(card, brands, timestamp):
         warnings,
         price=price,
         mileage=mileage,
-        raw_data={"year": match.group(1) if match else None, "card_html": str(card)},
+        raw_data={
+            "year": match.group(1) if match else None,
+            "card_html": str(card),
+            "image_placeholders_rejected": rejected,
+        },
+        primary_image_url=photo,
+        image_source="listing" if photo else None,
+        image_last_seen_at=timestamp if photo else None,
     )
 
 

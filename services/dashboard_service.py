@@ -8,10 +8,12 @@ from pathlib import Path
 
 from database.dashboard_repository import DashboardRepository
 from database.review_repository import ReviewRepository
+from database.vehicle_images import latest_vehicle_image
 from matching.matcher import Matcher
 from matching.models import MotorcycleQuery
 from matching.review_policy import signature
 from matching.rules import load_matching_rules
+from partners.images import IMAGE_FIELDS
 from scanner_base.normalizer import normalize_text
 from services.refinement_service import diagnostics, probable_absence
 
@@ -65,6 +67,8 @@ def flat(ad, automatic, effective, review=None, base=None):
         "price": ad.get("price"),
         "mileage": ad.get("mileage"),
         "source_url": ad.get("source_url"),
+        **{key: ad.get(key) for key in IMAGE_FIELDS},
+        "first_seen": ad.get("first_seen") or (review.get("created_at") if review else ad.get("collected_at")),
         "last_seen": ad.get("last_seen") or (review["last_seen"] if review else ad.get("collected_at")),
         "automatic_type": automatic["match_type"],
         "score": automatic.get("confidence"),
@@ -94,6 +98,10 @@ def unknown():
 class DashboardService:
     def __init__(self, config):
         self.config = config
+
+    def image_metadata(self, ad):
+        with DashboardRepository(self.config.database) as repo:
+            return latest_vehicle_image(repo.connection, ad)
 
     def snapshot(self):
         with DashboardRepository(self.config.database) as repo:

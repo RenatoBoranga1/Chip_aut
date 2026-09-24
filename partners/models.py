@@ -19,6 +19,9 @@ class PartnerMotorcycle:
     mileage: int | None = None
     zero_km: bool | None = None
     raw_data: dict = field(default_factory=dict)
+    primary_image_url: str | None = None
+    image_source: str | None = None
+    image_last_seen_at: str | None = None
 
 
 @dataclass

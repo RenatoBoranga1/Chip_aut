@@ -13,6 +13,7 @@ from partners.normalization import normalize_advertisement
 from partners.wr_http import WRHTTPSource
 from partners.wr_parser import parse_catalog_page
 from services.import_service import load_rules
+from services.vehicle_image_config import load_image_config
 
 LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class WRMotosCollector(PartnerCollector):
                 saved = json.loads(self.cache_file.read_text(encoding="utf-8"))
                 age = (datetime.now(timezone.utc) - datetime.fromisoformat(saved["collected_at"])).total_seconds()
                 if (
-                    saved.get("metadata", {}).get("cache_schema") == 2
+                    saved.get("metadata", {}).get("cache_schema") == 3
                     and saved["complete"]
                     and 0 <= age < self.cache_ttl
                 ):
@@ -77,6 +78,10 @@ class WRMotosCollector(PartnerCollector):
                     if ad.external_id in by_id:
                         duplicates += 1
                         old = by_id[ad.external_id]
+                        if not old.primary_image_url and ad.primary_image_url:
+                            old.primary_image_url = ad.primary_image_url
+                            old.image_source = ad.image_source
+                            old.image_last_seen_at = ad.image_last_seen_at
                         if (old.raw_name, old.year, old.price, old.mileage) != (
                             ad.raw_name,
                             ad.year,
@@ -107,9 +112,25 @@ class WRMotosCollector(PartnerCollector):
             LOGGER.exception("partner_collection_failed")
             result.errors.append({"code": type(exc).__name__, "detail": str(exc)})
         result.advertisements = list(by_id.values())
+        images = {"detail_attempts": 0, "detail_failures": 0, "detail_skipped": 0, "detail_placeholders_rejected": 0}
+        if result.complete and hasattr(self.source, "fill_missing_images"):
+            try:
+                images.update(self.source.fill_missing_images(result.advertisements, load_image_config()))
+            except Exception:
+                images["detail_failures"] += 1
+                LOGGER.exception("Optional image metadata unavailable")
+        images.update(
+            with_image=sum(bool(a.primary_image_url) for a in result.advertisements),
+            without_image=sum(not a.primary_image_url for a in result.advertisements),
+            listing=sum(a.image_source == "listing" for a in result.advertisements),
+            detail=sum(a.image_source == "detail" for a in result.advertisements),
+            placeholders_rejected=sum(a.raw_data.get("image_placeholders_rejected", 0) for a in result.advertisements)
+            + images["detail_placeholders_rejected"],
+        )
         result.metadata = {
             **self.source.metadata,
-            "cache_schema": 2,
+            "cache_schema": 3,
+            "images": images,
             "scope_counts": {
                 scope: {"cards": scope_cards[scope], "unique_ids": len(scope_ids[scope])} for scope in ("0", "1")
             },

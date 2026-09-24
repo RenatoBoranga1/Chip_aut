@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from partners.access import USER_AGENT, AccessDeniedError, check_status, robots_policy
+from partners.images import extract_detail_image
 from partners.models import CatalogPage
 from partners.wr_parser import BRANDS_PATH, CATALOG_URL, LIST_PATH, ORIGIN, next_page_number, parse_brands
 
@@ -77,3 +78,55 @@ class WRHTTPSource:
                         self.metadata["completed_scopes"].append(scope)
                         break
                     number = next_number
+
+    def fill_missing_images(self, advertisements, config):
+        missing = [ad for ad in advertisements if not ad.primary_image_url]
+        stats = {
+            "detail_attempts": 0,
+            "detail_failures": 0,
+            "detail_skipped": len(missing),
+            "detail_placeholders_rejected": 0,
+        }
+        if not config.enabled or not config.detail_fallback_limit or not missing:
+            return stats
+        targets = [
+            (ad, ORIGIN + "/v1/veiculo/?veiculo=" + ad.external_id)
+            for ad in missing[: config.detail_fallback_limit]
+            if ad.external_id.isdigit()
+        ]
+        try:
+            policy = robots_policy(ORIGIN, [url for _, url in targets], timeout=config.request_timeout_seconds)
+            with requests.Session() as session:
+                session.headers.update({"User-Agent": USER_AGENT})
+                for ad, url in targets:
+                    stats["detail_attempts"] += 1
+                    stats["detail_skipped"] -= 1
+                    time.sleep(max(self.delay, policy["delay"]))
+                    try:
+                        with session.get(
+                            url, timeout=config.request_timeout_seconds, allow_redirects=False, stream=True
+                        ) as response:
+                            if response.status_code != 200:
+                                check_status(response.status_code)
+                                raise ValueError("Página de foto indisponível")
+                            body = bytearray()
+                            deadline = time.monotonic() + config.request_timeout_seconds
+                            for chunk in response.iter_content(65536):
+                                body.extend(chunk)
+                                if len(body) > 2_000_000 or time.monotonic() > deadline:
+                                    raise ValueError("Limite da página de foto excedido")
+                        html = body.decode("utf-8", errors="replace")
+                        check_status(200, html)
+                        photo, rejected = extract_detail_image(html, url)
+                        stats["detail_placeholders_rejected"] += rejected
+                        if photo:
+                            ad.primary_image_url, ad.image_source = photo, "detail"
+                            ad.image_last_seen_at = datetime.now(timezone.utc).isoformat()
+                    except AccessDeniedError:
+                        stats["detail_failures"] += 1
+                        break  # No further image requests after a block or rate limit.
+                    except Exception:
+                        stats["detail_failures"] += 1
+        except Exception:
+            stats["detail_failures"] += 1
+        return stats

@@ -6,6 +6,7 @@ import streamlit as st
 
 from services.alert_service import AlertService, filter_alerts
 from ui.textos import ALERT_ACTIONS, ALERT_SEVERITIES, ALERT_STATES, ALERT_TYPES, LABELS, cell, explanation, value
+from ui.vehicle_images import vehicle_photo
 
 
 def navigate(page, field=None, identifier=None):
@@ -115,6 +116,10 @@ def alert_center(dashboard):
         st.info("Esta condição deixou de ser observada. O histórico permanece disponível.")
     ad = details.get("advertisement", {})
     if ad:
+        photo_ad = {**ad, **dashboard.image_metadata(ad)}
+        vehicle_photo(photo_ad, details, alert_type=item["alert_type"])
+        if photo_ad.get("primary_image_url"):
+            st.caption("Foto da observação mais recente deste anúncio; a evidência do alerta permanece histórica.")
         st.write(
             f"{ad.get('manufacturer') or 'Fabricante não informado'} · {ad.get('model') or 'Modelo não informado'} · Ano {ad.get('year') or 'não informado'}"
         )

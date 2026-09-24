@@ -14,6 +14,7 @@ from matching.identity import CATEGORIES
 from matching.matcher import Matcher
 from matching.models import MotorcycleQuery
 from matching.rules import DEFAULT_MATCHING_RULES, load_matching_rules
+from partners.models import PartnerMotorcycle
 from scanner_base.normalizer import normalize_manufacturer
 from services.coverage_service import build_coverage
 
@@ -149,7 +150,10 @@ def analyze_refinement(collection_id, baseline_coverage_id, database, destinatio
     old_items = {i["advertisement"]["external_id"]: i for group in baseline["groups"].values() for i in group}
     if set(old_items) != {a.external_id for a in collection.advertisements}:
         raise ValueError("Inventários antes/depois não correspondem")
-    if any(asdict(a) != old_items[a.external_id]["advertisement"] for a in collection.advertisements):
+    if any(
+        asdict(a) != asdict(PartnerMotorcycle(**old_items[a.external_id]["advertisement"]))
+        for a in collection.advertisements
+    ):
         raise ValueError("Observações foram alteradas desde o baseline")
     rules = load_matching_rules(rules_path)
     engine = Matcher(base, scanner_policy["manufacturer_aliases"], rules, memory)

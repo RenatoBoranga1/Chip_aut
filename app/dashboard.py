@@ -13,8 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from partners.images import IMAGE_FIELDS  # noqa: E402
 from services.alert_service import AlertService  # noqa: E402
 from services.dashboard_service import DashboardConfig, DashboardService, filter_rows  # noqa: E402
+from services.vehicle_image_config import load_image_config  # noqa: E402
 from ui.alert_panel import alert_center  # noqa: E402
 from ui.pipeline_panel import automatic_updates, refresh_after_pipeline  # noqa: E402
 from ui.textos import (  # noqa: E402
@@ -31,6 +33,7 @@ from ui.textos import (  # noqa: E402
     validation_message,
     value,
 )
+from ui.vehicle_images import photo_cells, vehicle_photo  # noqa: E402
 
 PAGES = [
     "Visão geral",
@@ -47,18 +50,23 @@ PAGES = [
 ]
 
 
-def table(rows, key, columns=None):
+def table(rows, key, columns=None, images=False):
     if not rows:
         st.info("Nenhum registro para esta seleção.")
         return
-    size = 50
+    config = load_image_config() if images else None
+    size = 8 if images and config.enabled else 50
     pages = (len(rows) + size - 1) // size
     page = st.selectbox("Página", range(1, pages + 1), key=f"{key}_page") if pages > 1 else 1
     st.caption(f"{len(rows)} registros · página {page} de {pages}")
+    visible = rows[(page - 1) * size : page * size]
     data = [
-        row_labels({k: v for k, v in row.items() if columns is None or k in columns})
-        for row in rows[(page - 1) * size : page * size]
+        row_labels({k: v for k, v in row.items() if k not in IMAGE_FIELDS and (columns is None or k in columns)})
+        for row in visible
     ]
+    if images and config.enabled:
+        photos = photo_cells(visible, config)
+        data = [{"Foto": photo, **row} for row, photo in zip(data, photos)]
     for row in data:
         url = row.get("Link do anúncio")
         if isinstance(url, str) and url.startswith(("https://", "http://")):
@@ -105,6 +113,11 @@ def detail(service, item_id):
     item = service.detail(item_id)
     ad, auto, effective = item["advertisement"], item["automatic"], item["effective"]
     st.subheader(f"Revisão #{item_id} · {ad['manufacturer']} {ad['model']}")
+    vehicle_photo(
+        ad,
+        {"effective_type": effective["match_type"], "state": item["state"], "priority": item["priority"]},
+        detail=True,
+    )
     st.caption(
         f"{value(item['state'])} · prioridade {value(item['priority'])} · base {item['base_id']} · coleta {item['collection_id']}"
     )
@@ -364,6 +377,7 @@ def main():
                 "last_seen",
                 "external_id",
             ],
+            images=True,
         )
         related_review = st.session_state.pop("related_review_id", None)
         review_options = [None, *[r["id"] for r in rows]]
@@ -429,13 +443,18 @@ def main():
                     "id",
                     "manufacturer",
                     "model",
+                    "version",
                     "year",
+                    "partner",
+                    "first_seen",
+                    "last_seen",
                     "external_id",
                     "priority",
                     "effective_type",
                     "evidence",
                     "source_url",
                 ],
+                images=True,
             )
     elif page == "Base do scanner":
         text = st.text_input("Buscar na base", placeholder="Fabricante, modelo, ano ou chave")

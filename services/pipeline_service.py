@@ -16,8 +16,10 @@ from database.partner_repository import PartnerRepository
 from database.pipeline_repository import PipelineRepository, read_pipeline
 from database.repository import encode
 from database.transaction import atomic_database
+from database.vehicle_images import save_vehicle_images
 from matching.review_policy import load_policy
 from matching.rules import load_matching_rules
+from partners.images import IMAGE_FIELDS
 from partners.wr_http import WRHTTPSource
 from partners.wr_motos import WRMotosCollector
 from services.alert_service import enqueue, safe_process
@@ -83,7 +85,10 @@ def default_collector(config, folder):
 
 def fingerprint(result, repo):
     # Exclude observation time and transport evidence, not identity, price, mileage or original text.
-    ads = [{k: v for k, v in asdict(a).items() if k not in {"collected_at", "raw_data"}} for a in result.advertisements]
+    ads = [
+        {k: v for k, v in asdict(a).items() if k not in {"collected_at", "raw_data", *IMAGE_FIELDS}}
+        for a in result.advertisements
+    ]
     base = repo.connection.execute("SELECT MAX(id) FROM imports").fetchone()[0]
     if base is None:
         raise ValueError("Importe a base do scanner antes da atualização")
@@ -214,6 +219,7 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
                 if reuse:
                     with PipelineRepository(database) as repo:
                         repo.refresh_observations(result)
+                        save_vehicle_images(repo.connection, result)
                     collection_id = prior[0]
                     old = json.loads(prior[1])
                     summary.update({k: old[k] for k in ("matching_counts", "queue_counts", "coverage_counts")})

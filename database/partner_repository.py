@@ -3,6 +3,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 
 from database.repository import SQLiteRepository, encode
+from database.vehicle_images import save_vehicle_images
 from partners.models import CollectionResult, PartnerMotorcycle
 
 
@@ -50,6 +51,7 @@ class PartnerRepository(SQLiteRepository):
                     "INSERT INTO partner_observations VALUES (?,?,?,?)",
                     (collection_id, ad.partner, ad.external_id, encode(asdict(ad))),
                 )
+            save_vehicle_images(self.connection, result)
         return collection_id
 
     def get_collection(self, collection_id):

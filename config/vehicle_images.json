@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "show_for_not_found": true,
+  "show_for_probable_missing": true,
+  "show_for_confirmed_missing": true,
+  "show_for_high_priority_review": true,
+  "cache_enabled": true,
+  "thumbnail_width": 140,
+  "request_timeout_seconds": 3,
+  "max_image_bytes": 5000000,
+  "detail_fallback_limit": 8
+}
