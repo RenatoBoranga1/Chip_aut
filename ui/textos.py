@@ -10,7 +10,7 @@ ALERT_TYPES = {
     "DEV_STALE": "Desenvolvimento: acompanhar prazo",
     "DEV_VALIDATION": "Desenvolvimento: em validação",
     "DEV_COMPLETED": "Desenvolvimento: concluído",
-    "NOVO_ANUNCIO": "Novo anúncio",
+    "NOVO_ANUNCIO": "Novo anúncio no parceiro",
     "POSSIVEL_NOVA_MOTO": "Possível nova moto",
     "SEM_SUPORTE": "Sem suporte",
     "SUPORTE_PARCIAL": "Suporte parcial",
@@ -34,6 +34,11 @@ ALERT_ACTIONS = {
 }
 
 LABELS = {
+    "human_status": "Decisão humana",
+    "base_status": "Situação na base",
+    "partner_status": "Situação no parceiro",
+    "pending_origin": "Origem da pendência",
+    "decision_action": "Ação",
     "id": "Revisão",
     "manufacturer": "Fabricante",
     "model": "Modelo",
@@ -127,7 +132,7 @@ VALUES = {
     "AMBIGUOUS": "Ambíguo",
     "AMBIGUO": "Ambíguo",
     "NOT_FOUND": "Não encontrado na base",
-    "NAO_ENCONTRADA_NA_BASE": "Não encontrado na base",
+    "NAO_ENCONTRADA_NA_BASE": "Não encontrado automaticamente na base",
     "CONFIRMADO_AUSENTE_NA_BASE": "Ausência confirmada na base atual",
     "EXATO_CONFIRMADO_HUMANAMENTE": "Correspondência confirmada pelo revisor",
     "CONFIRMADO_MANUALMENTE": "Correspondência confirmada pelo revisor",

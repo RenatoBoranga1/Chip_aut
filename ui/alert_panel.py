@@ -109,6 +109,8 @@ def alert_center(dashboard):
     details = item["details"]
     st.subheader(item["title"])
     st.write(item["message"])
+    if item["alert_type"] == "NOVO_ANUNCIO":
+        st.info("Novo anúncio no parceiro. Isso não confirma que a moto esteja ausente da base do scanner.")
     st.caption("Evidência da ocorrência registrada; a cobertura atual pode ter mudado desde então.")
     st.write(
         f"Primeira ocorrência: {item['first_seen_at']} · Última ocorrência: {item['last_seen_at']} · Ocorrências: {item['occurrence_count']}"

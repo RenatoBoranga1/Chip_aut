@@ -1,7 +1,7 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1 a 7, incluindo alertas, miniaturas e gestão de desenvolvimento.** Parser, normalização,
+**Entrega atual: Milestones 1 a 7.1, incluindo confirmação humana de presença na base.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
 funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
 preliminar, painel Streamlit, agendamento independente e acompanhamento de necessidades confirmadas para desenvolvimento.
@@ -885,6 +885,63 @@ não há autenticação corporativa ou controle de permissões por pessoa nesta 
 
 Consulte [RESULTADOS_MILESTONE_7.md](RESULTADOS_MILESTONE_7.md) para testes, validação
 em banco temporário e limitações. O banco real não recebe tarefas de demonstração.
+
+## Confirmação humana e novos anúncios — Milestone 7.1
+
+Na **Fila de revisão** e em **Possíveis novas motos**, cada linha oferece
+**Registrar decisão** ou **Ver / alterar decisão**. O link abre outra aba diretamente
+no formulário da revisão, com parceiro e anúncio já selecionados. A ação **Voltar
+à fila de revisão** permite acompanhar o resultado atualizado; na aba original,
+use **Atualizar dados** para reler o banco.
+
+A coluna **Decisão humana** é derivada da revisão/memória existente:
+
+| Estado | Significado |
+| --- | --- |
+| Pendente | Nenhuma confirmação válida de presença/ausência; automático não é humano |
+| Existe na base | Confirmação humana válida com chave real do scanner |
+| Não existe na base | Ausência declarada por humano na versão consultada |
+| Em dúvida | Decisão explícita de revisar depois; permanece na fila operacional |
+
+Rejeitar um candidato ou ignorar um caso não confirma presença/ausência. A tabela
+mostra Pendente nesses casos e permite consultar a ação no histórico. Decisão
+vencida também aparece como Pendente, preservando a decisão anterior e seu motivo
+de invalidação no detalhe. A memória manual legada válida continua reconhecida.
+
+**Existe na base** exige escolher um registro. Os candidatos sugeridos aparecem
+primeiro; **Buscar na base do scanner** permite filtrar fabricante, ano e nome,
+versão ou chave. A busca aceita variações de espaços/hífens do modelo. Ela é
+limitada aos registros da base atual compatíveis com fabricante e ano do anúncio,
+conforme a validação já existente. A versão está no modelo completo do scanner.
+Nenhuma opção é selecionada automaticamente; sem vínculo, a gravação é recusada.
+
+Autor e justificativa continuam obrigatórios. Alterações acrescentam eventos,
+conservam a versão da base, chave vinculada, origem e memória. A próxima coleta
+reutiliza apenas decisões compatíveis com as regras existentes. **Não existe na
+base** não vira **Sem suporte**. Não há escrita no Excel nem criação automática
+de desenvolvimento. A ausência expira quando muda a versão da base.
+
+**Situação no parceiro** descreve a última observação efetiva: Novo anúncio,
+Já conhecido, Reapareceu ou Saiu do estoque. Reapareceu exige observação anterior
+à última coleta completa que não continha aquele ID. Coleta parcial, cache ou
+falha nunca prova desaparecimento. Verificação completa reutilizada pelo pipeline
+passa a mostrar Já conhecido, sem perpetuar a novidade da coleta original.
+As datas de primeira/última aparição vêm do anúncio, não da criação da revisão.
+
+**Situação na base** separa correspondência automática, confirmação humana,
+ausência confirmada, ambiguidade, dúvida e pendência. **Origem da pendência** usa
+as evidências existentes do anúncio, matching e suporte. Novo anúncio no parceiro
+não significa nova moto para a base; não encontrado automaticamente exige revisão.
+Os alertas de novidade agora deixam essa distinção explícita.
+
+Cobertura e prioridade saíram apenas das tabelas principais de revisão e possíveis
+novas motos. Continuam no detalhe, nos filtros, na persistência e nas regras.
+O estoque também apresenta as novas situações. Consultas continuam somente leitura;
+os links validam o parceiro e `MOTO_READ_ONLY=1` bloqueia decisões.
+
+Sem nova migration ou integração de parceiro. A arquitetura multi-parceiro do
+Milestone 8 permanece adiada. Consulte
+[RESULTADOS_MILESTONE_7_1.md](RESULTADOS_MILESTONE_7_1.md).
 
 ## Próximas etapas
 

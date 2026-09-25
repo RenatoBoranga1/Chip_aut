@@ -84,6 +84,51 @@ class DashboardRepository(ReviewRepository):
         )
         return {(r[0], r[2]): {"base_id": r[1], "result": json.loads(r[3])} for r in rows}
 
+    def partner_situations(self, partner):
+        """State at the latest actual observation; cached/failed runs are not stock evidence."""
+        latest = self.connection.execute(
+            "SELECT MAX(id) FROM partner_collections WHERE partner=? AND status IN ('COMPLETE','PARTIAL')",
+            (partner,),
+        ).fetchone()[0]
+        previous = self.connection.execute(
+            "SELECT MAX(id) FROM partner_collections WHERE partner=? AND status='COMPLETE' AND id<?",
+            (partner, latest),
+        ).fetchone()[0]
+        seen = {
+            r[0]: r[1:]
+            for r in self.connection.execute(
+                "SELECT external_id,MIN(collection_id),MAX(collection_id=?),MAX(collection_id=?) "
+                "FROM partner_observations WHERE partner=? GROUP BY external_id",
+                (latest, previous, partner),
+            )
+        }
+        reused = False
+        if self.connection.execute("SELECT 1 FROM sqlite_master WHERE name='pipeline_runs'").fetchone():
+            run = self.connection.execute(
+                "SELECT p.collection_run_id,json_extract(p.summary_json,'$.reused') FROM pipeline_runs p "
+                "JOIN partner_collections c ON c.id=p.collection_run_id WHERE c.partner=? "
+                "AND p.status IN ('SUCCESS','PARTIAL_SUCCESS') ORDER BY p.id DESC LIMIT 1",
+                (partner,),
+            ).fetchone()
+            reused = bool(run and run[0] == latest and run[1])
+        result = {}
+        for external_id, missing, first, last in self.connection.execute(
+            "SELECT external_id,not_seen_in_latest_collection,first_seen_at,last_seen_at "
+            "FROM partner_advertisements WHERE partner=?",
+            (partner,),
+        ):
+            first_collection, in_latest, in_previous = seen.get(external_id, (None, False, False))
+            state = "Já conhecido"
+            if missing:
+                state = "Saiu do estoque"
+            elif in_latest and not reused:
+                if first_collection == latest:
+                    state = "Novo anúncio"
+                elif previous and not in_previous and first_collection < previous:
+                    state = "Reapareceu"
+            result[external_id] = {"partner_status": state, "first_seen": first, "last_seen": last}
+        return result
+
     def collections(self, partner, limit=50, offset=0):
         rows = self.connection.execute(
             "SELECT id,created_at,status,json_remove(summary_json,'$.advertisements'),"

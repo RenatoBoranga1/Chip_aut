@@ -3,7 +3,6 @@
 import json
 import logging
 import sys
-import uuid
 from dataclasses import replace
 from pathlib import Path
 
@@ -16,14 +15,14 @@ if str(ROOT) not in sys.path:
 from partners.images import IMAGE_FIELDS  # noqa: E402
 from services.alert_service import AlertService  # noqa: E402
 from services.dashboard_service import DashboardConfig, DashboardService, filter_rows  # noqa: E402
+from services.review_presentation import decision_link  # noqa: E402
 from services.vehicle_image_config import load_image_config  # noqa: E402
 from ui.alert_panel import alert_center  # noqa: E402
 from ui.development_panel import development_page, offer_creation, origin_picker  # noqa: E402
+from ui.human_decision import decision_form  # noqa: E402
 from ui.pipeline_panel import automatic_updates, refresh_after_pipeline  # noqa: E402
 from ui.textos import (  # noqa: E402
-    ACTIONS,
     COVERAGE_HELP,
-    IDENTITY_HELP,
     LABELS,
     MATCH_HELP,
     SORTS,
@@ -31,7 +30,6 @@ from ui.textos import (  # noqa: E402
     cell,
     explanation,
     row_labels,
-    validation_message,
     value,
 )
 from ui.vehicle_images import photo_cells, photo_filter, photo_metrics, vehicle_photo  # noqa: E402
@@ -52,7 +50,7 @@ PAGES = [
 ]
 
 
-def table(rows, key, columns=None, images=False):
+def table(rows, key, columns=None, images=False, decisions=False):
     if not rows:
         st.info("Nenhum registro para esta seleção.")
         return
@@ -66,7 +64,7 @@ def table(rows, key, columns=None, images=False):
         row_labels(
             {
                 k: v
-                for k, v in row.items()
+                for k, v in ((k, row.get(k)) for k in (columns or row))
                 if k
                 not in {*IMAGE_FIELDS, "cached_image_urls", "detail_image_url", "thumbnail_url", "listing_image_url"}
                 and (columns is None or k in columns)
@@ -81,6 +79,8 @@ def table(rows, key, columns=None, images=False):
         )
         photos = photo_cells(visible, config)
         data = [{"Foto": photo, **row} for row, photo in zip(data, photos)]
+    if decisions:
+        data = [{**row, "Ação": decision_link(source)} for row, source in zip(data, visible)]
     for row in data:
         url = row.get("Link do anúncio")
         if isinstance(url, str) and url.startswith(("https://", "http://")):
@@ -123,7 +123,7 @@ def systems(moto):
         st.write(f"**{LABELS[field]}:** {', '.join(moto[field]) or 'Nenhum registro'}")
 
 
-def detail(service, item_id):
+def detail(service, item_id, include_form=True):
     item = service.detail(item_id)
     ad, auto, effective = item["advertisement"], item["automatic"], item["effective"]
     st.subheader(f"Revisão #{item_id} · {ad['manufacturer']} {ad['model']}")
@@ -156,6 +156,9 @@ def detail(service, item_id):
     for reason in auto["reasons"]:
         st.write(explanation(reason))
     table(auto["candidates"], f"candidates_{item_id}")
+    st.write(
+        f"**Decisão humana:** {item['presentation']['human_status']} · **Situação na base:** {item['presentation']['base_status']}"
+    )
     st.subheader("Identidade efetiva e cobertura")
     st.write(f"**{value(effective['match_type'])}** · {effective['scanner_key'] or 'Sem chave vinculada'}")
     if effective["match_type"] == "CONFIRMADO_AUSENTE_NA_BASE":
@@ -188,78 +191,23 @@ def detail(service, item_id):
         )
         st.write("Motivos para uma nova revisão")
         table([{"created_at": date, "reason": reason} for date, reason in item["events"]], f"events_{item_id}")
-    st.subheader("Registrar decisão humana")
-    if service.config.read_only:
-        st.info("Modo somente leitura. O registro de decisões está desabilitado.")
-        return
-    draft_key = f"draft_{item_id}"
-    receipt_key = f"receipt_{item_id}"
-    if receipt_key in st.session_state:
-        st.success(st.session_state[receipt_key])
-        if st.button("Iniciar outra revisão", key=f"new_{item_id}"):
-            st.session_state.pop(receipt_key)
-            st.session_state.pop(draft_key, None)
-            st.rerun()
-        return
-    if draft_key not in st.session_state:
-        st.session_state[draft_key] = {"request_id": str(uuid.uuid4()), "revision": item["revision"]}
-    draft = st.session_state[draft_key]
-    if draft["revision"] != item["revision"]:
-        st.warning("O item mudou enquanto o formulário estava aberto. Atualize antes de decidir.")
-    if st.button("Atualizar item e formulário", key=f"refresh_{item_id}"):
-        st.session_state.pop(draft_key, None)
-        st.rerun()
-    candidates = {m["key"]: m for m in item["selectable_candidates"]}
-    st.warning(IDENTITY_HELP)
-    with st.form(f"decision_{item_id}", clear_on_submit=False):
-        action = st.selectbox("Ação", list(ACTIONS), key=f"action_{item_id}")
-        candidate = st.selectbox(
-            "Candidato (obrigatório para confirmar ou rejeitar)",
-            list(candidates),
-            index=None,
-            placeholder="Escolha explicitamente um candidato",
-            format_func=lambda k: f"{k} · {value(candidates[k]['status'])}",
-            key=f"candidate_{item_id}",
-        )
-        reviewer = st.text_input("Revisor", key=f"reviewer_{item_id}")
-        note = st.text_area("Justificativa", key=f"note_{item_id}")
-        submitted = st.form_submit_button("Salvar decisão", type="primary")
-    if submitted:
-        try:
-            service.submit(
-                item_id,
-                ACTIONS[action],
-                reviewer,
-                note,
-                candidate if action in {"Confirmar correspondência", "Rejeitar candidato"} else None,
-                draft["request_id"],
-                draft["revision"],
-            )
-        except ValueError as exc:
-            st.error(validation_message(exc))
-        except Exception:
-            st.error(
-                "Não foi possível confirmar o salvamento. Atualize e confira o histórico antes de tentar novamente."
-            )
-        else:
-            st.session_state[receipt_key] = (
-                "Decisão registrada. Identidade confirmada como ausente da versão atual da base."
-                if action == "Confirmar ausência na base atual"
-                else "Decisão registrada. Resultado efetivo atualizado e auditoria preservada."
-            )
-            st.rerun()
+    if include_form:
+        decision_form(service, item)
 
 
 def main():
     st.set_page_config(page_title="Cobertura de motos · Operação", page_icon="🏍", layout="wide")
     st.markdown("<style>[data-testid='stToolbar'], #MainMenu {display:none}</style>", unsafe_allow_html=True)
     config = DashboardConfig.from_env()
+    direct = st.query_params.get("review")
+    if direct:
+        config = replace(config, partner=st.query_params.get("partner", config.partner))
     service = DashboardService(config)
     st.sidebar.title("Cobertura de motos")
     st.sidebar.caption("OPERAÇÃO · WR MOTOS")
     try:
         snapshot = service.snapshot()
-        partners = snapshot["partners"] or [config.partner]
+        partners = [config.partner] if direct else snapshot["partners"] or [config.partner]
         partner = st.sidebar.selectbox(
             "Parceiro",
             partners,
@@ -275,6 +223,54 @@ def main():
             "Não foi possível abrir a base de dados. Peça ao responsável para conferir o arquivo e a configuração do sistema."
         )
         st.stop()
+    if direct:
+        try:
+            item = service.detail(int(direct))
+        except (ValueError, TypeError):
+            st.error("Revisão não encontrada para este parceiro. Confira o link.")
+            return
+        if st.button("Voltar à fila de revisão"):
+            st.query_params.clear()
+            st.session_state.navigation = "Fila de revisão"
+            st.session_state.related_review_id = item["id"]
+            st.rerun()
+        st.title("Registrar decisão humana")
+        ad = item["advertisement"]
+        left, right = st.columns([1, 4])
+        with left:
+            vehicle_photo(
+                ad,
+                {
+                    "effective_type": item["effective"]["match_type"],
+                    "state": item["state"],
+                    "priority": item["priority"],
+                },
+                detail=False,
+                force=True,
+            )
+        with right:
+            st.subheader(
+                f"Revisão #{item['id']} · {ad['manufacturer']} {ad['model']} · {ad['year'] or 'Ano não informado'}"
+            )
+            st.caption(
+                f"{cell('partner', ad['partner'])} · versão: {ad.get('version') or 'No nome do modelo'} · anúncio {ad['external_id']}"
+            )
+            st.write(f"Resultado automático: **{value(item['automatic']['match_type'])}**")
+            st.write(
+                f"Decisão humana: **{item['presentation']['human_status']}** · {item['presentation']['base_status']}"
+            )
+            if ad.get("source_url", "").startswith(("https://", "http://")):
+                st.link_button("Abrir anúncio", ad["source_url"])
+        with st.expander("Motivo da revisão e candidatos automáticos"):
+            for reason in item["automatic"]["reasons"]:
+                st.write(explanation(reason))
+            table(
+                item["automatic"]["candidates"], "direct_candidates", ["manufacturer", "model", "year", "scanner_key"]
+            )
+        decision_form(service, item, compact=True)
+        with st.expander("Detalhes, cobertura, prioridade e histórico"):
+            detail(service, item["id"], include_form=False)
+        return
     page = st.sidebar.radio("Navegação", PAGES, key="navigation")
     st.sidebar.caption(
         f"Base {snapshot['base_id']} · {'Somente leitura' if config.read_only else 'Revisões habilitadas'}"
@@ -382,15 +378,16 @@ def main():
             "queue",
             [
                 "id",
-                "priority",
-                "state",
                 "manufacturer",
                 "model",
                 "year",
                 "automatic_type",
-                "coverage",
+                "human_status",
+                "partner_status",
+                "pending_origin",
             ],
             images=True,
+            decisions=True,
         )
         related_review = st.session_state.pop("related_review_id", None)
         with image_indicators:
@@ -419,6 +416,9 @@ def main():
                 "price",
                 "mileage",
                 "automatic_type",
+                "human_status",
+                "partner_status",
+                "base_status",
                 "coverage",
                 "priority",
                 "external_id",
@@ -448,7 +448,9 @@ def main():
             ],
         )
     elif page == "Possíveis novas motos":
-        st.info("Ausência provável é uma hipótese sobre esta versão da base, não uma confirmação de falta de suporte.")
+        st.info(
+            "Novo anúncio no parceiro não significa nova moto para a base. Não encontrado automaticamente exige confirmação humana; ausência confirmada não significa sem suporte."
+        )
         opportunities = service.opportunities()
         image_indicators = st.container()
         for title, rows in opportunities.items():
@@ -463,11 +465,12 @@ def main():
                     "model",
                     "year",
                     "first_seen",
-                    "priority",
-                    "effective_type",
-                    "source_url",
+                    "partner_status",
+                    "base_status",
+                    "human_status",
                 ],
                 images=True,
+                decisions=True,
             )
         with image_indicators:
             photo_metrics([r for group in opportunities.values() for r in group])

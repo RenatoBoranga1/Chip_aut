@@ -75,9 +75,9 @@ def photo_metrics(rows):
         st.caption("Indicadores de imagem deste processo local. Não representam identidade, suporte ou prioridade.")
 
 
-def vehicle_photo(ad, context, *, detail=False, alert_type=None):
+def vehicle_photo(ad, context, *, detail=False, alert_type=None, force=False):
     config = load_image_config()
-    if not should_show_vehicle_image(context, config, alert_type=alert_type):
+    if not config.enabled or (not force and not should_show_vehicle_image(context, config, alert_type=alert_type)):
         return
     expanded = detail and st.checkbox(
         "Ampliar foto", key=f"enlarge_photo_{ad.get('partner')}_{ad.get('external_id')}_{alert_type}"

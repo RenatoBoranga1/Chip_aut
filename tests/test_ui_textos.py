@@ -168,7 +168,9 @@ def test_filters_show_portuguese_and_send_internal_values(dashboard, monkeypatch
     ui.multiselect(key="queue_priority").set_value(["high"]).run()
     assert not ui.exception and not ui.error
     frame = ui.table[0].value
-    assert set(frame["Prioridade"]) == {"Alta"}
+    assert "Prioridade" not in frame.columns  # Milestone 7.1: filter retained, main column hidden.
+    high_ids = {str(r["id"]) for r in dashboard.snapshot()["queue"] if r["priority"] == "high"}
+    assert set(frame["Revisão"]) == high_ids
     assert len(frame) == 3
 
 

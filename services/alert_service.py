@@ -20,7 +20,7 @@ from services.scheduler_config import utcnow
 
 LOGGER = logging.getLogger("services.pipeline_service")
 TITLES = {
-    "NOVO_ANUNCIO": "Novo anúncio encontrado",
+    "NOVO_ANUNCIO": "Novo anúncio no parceiro",
     "POSSIVEL_NOVA_MOTO": "Possível nova moto fora da base",
     "SEM_SUPORTE": "Moto com sistemas sem suporte",
     "SUPORTE_PARCIAL": "Moto com suporte parcial",

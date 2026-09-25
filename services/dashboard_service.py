@@ -14,8 +14,9 @@ from matching.models import MotorcycleQuery
 from matching.review_policy import signature
 from matching.rules import load_matching_rules
 from partners.images import IMAGE_FIELDS
-from scanner_base.normalizer import normalize_text
+from scanner_base.normalizer import normalize_model, normalize_text
 from services.refinement_service import diagnostics, probable_absence
+from services.review_presentation import presentation
 
 LOGGER = logging.getLogger(__name__)
 
@@ -83,6 +84,7 @@ def flat(ad, automatic, effective, review=None, base=None):
         "unsupported_systems": target.unsupported_systems if target else [],
         "analysis_systems": target.analysis_systems if target else [],
         "unknown_systems": target.unknown_systems if target else [],
+        **presentation(automatic, effective, review, ad.get("partner_status")),
     }
 
 
@@ -109,6 +111,11 @@ class DashboardService:
         with DashboardRepository(self.config.database) as repo:
             items = repo.queue(self.config.partner)
             ads = repo.advertisements(self.config.partner)
+            situations = repo.partner_situations(self.config.partner)
+            for ad in ads:
+                ad.update(situations.get(ad["external_id"], {}))
+            for item in items:
+                item["advertisement"].update(situations.get(item["external_id"], {}))
             by_ad = {i["external_id"]: i for i in items}
             coverage = repo.automatic_coverage({a["collection_id"] for a in ads})
             stock = []
@@ -165,7 +172,28 @@ class DashboardService:
                 )
             ]
             item["selectable_candidates"] = current_candidates
+            item["presentation"] = presentation(
+                item["automatic"],
+                item["effective"],
+                item,
+                repo.partner_situations(self.config.partner).get(item["external_id"], {}).get("partner_status"),
+            )
             return item
+
+    def search_scanner_candidates(self, item_id, text="", manufacturer=None, year=None):
+        """Current, linkable scanner records; same manufacturer/year safety as decide()."""
+        rows = self.detail(item_id)["selectable_candidates"]
+        rows = [{**m, "scanner_key": m["key"]} for m in rows]
+        filters = {"manufacturer": [manufacturer] if manufacturer else [], "year": [year] if year else []}
+        terms = [normalize_model(term) for term in normalize_text(text).split()]
+        rows = [
+            r
+            for r in rows
+            if all(
+                term in normalize_model(f"{r['manufacturer']} {r['model']} {r['year']} {r['key']}") for term in terms
+            )
+        ]
+        return filter_rows(rows, filters, sort="model")
 
     def scanner(self, text=""):
         with DashboardRepository(self.config.database) as repo:
@@ -189,6 +217,9 @@ class DashboardService:
             for row in snapshot["stock"]:
                 if row["effective_type"] == "CONFIRMADO_AUSENTE_NA_BASE":
                     confirmed.append(row)
+                    continue
+                if row["human_status"] == "Em dúvida":
+                    pending.append(row)
                     continue
                 ad = ads[row["external_id"]]
                 reason = None
