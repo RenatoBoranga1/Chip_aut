@@ -9,6 +9,9 @@ from partners.models import CollectionResult, PartnerMotorcycle
 
 class PartnerRepository(SQLiteRepository):
     def save_collection(self, result):
+        from services.collection_service import validate_collection
+
+        validate_collection(result.partner, result)
         status = (
             "CACHED"
             if result.cached

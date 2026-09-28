@@ -7,9 +7,8 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from partners.base_partner import PartnerCollector
+from partners.base_partner import PartnerAdapter
 from partners.models import CollectionResult, PartnerMotorcycle
-from partners.normalization import normalize_advertisement
 from partners.wr_http import WRHTTPSource
 from partners.wr_parser import parse_catalog_page
 from services.import_service import load_rules
@@ -18,12 +17,33 @@ from services.vehicle_image_config import load_image_config
 LOGGER = logging.getLogger(__name__)
 
 
-class WRMotosCollector(PartnerCollector):
+class WRMotosCollector(PartnerAdapter):
+    partner_key = "wr_motos"
+    display_name = "WR Motos"
+    supports_images = True
+    supports_price = True
+    supports_mileage = True
+    supports_zero_km = True
+
     def __init__(self, source=None, cache_file=None, cache_ttl=300, aliases=None):
         self.source = source or WRHTTPSource()
         self.cache_file = Path(cache_file) if cache_file else None
         self.cache_ttl = cache_ttl
         self.aliases = aliases if aliases is not None else load_rules()["manufacturer_aliases"]
+
+    @classmethod
+    def for_pipeline(cls, settings, config, folder):
+        adapter = cls(
+            source=WRHTTPSource(
+                delay=config.delay_seconds,
+                timeout_ms=int(config.request_timeout_seconds * 1000),
+                max_pages=config.max_pages,
+                evidence_dir=folder,
+            ),
+            cache_ttl=0,
+        )
+        adapter.display_name, adapter.enabled = settings.display_name, settings.enabled
+        return adapter
 
     def collect_motorcycles(self):
         start = time.perf_counter()
@@ -70,7 +90,7 @@ class WRMotosCollector(PartnerCollector):
                 result.errors.extend({**e, "page": page.number, "scope": page.scope} for e in errors)
                 result.pages.append({"scope": page.scope, "page": page.number, "url": page.url, "cards": count})
                 for ad in ads:
-                    normalize_advertisement(ad, self.aliases)
+                    self.normalize_ad(ad)
                     ad.zero_km = page.scope == "1"
                     ad.raw_data.update(
                         scope=page.scope, page=page.number, response_url=page.url, response_sha256=signature

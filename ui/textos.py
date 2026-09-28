@@ -93,6 +93,7 @@ LABELS = {
     "compact": "Similaridade do nome sem espaços",
     "new": "Novos anúncios",
     "reappeared": "Anúncios reencontrados",
+    "returned": "Retornos ao estoque",
     "disappeared": "Anúncios que deixaram de aparecer",
     "memory_scope": "Abrangência da decisão",
     "policy": "Regras aplicadas",
@@ -325,7 +326,12 @@ def cell(field, raw):
     if field in ENUM_FIELDS:
         return value(raw)
     if field == "partner":
-        return VALUES.get(str(raw).casefold(), str(raw))  # Partner names are source data.
+        from partners.registry import PartnerRegistry
+
+        try:
+            return PartnerRegistry().get(raw).display_name
+        except ValueError:
+            return str(raw)  # Historical origins may no longer be configured.
     if field in TEXT_FIELDS:
         return explanation(raw)
     return raw

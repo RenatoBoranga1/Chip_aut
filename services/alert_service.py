@@ -5,6 +5,7 @@ import json
 import logging
 from collections import Counter
 from dataclasses import asdict
+from functools import partial
 
 from database.alert_repository import AlertRepository, read_alert_history, read_alerts
 from database.repository import encode
@@ -40,17 +41,17 @@ def enqueue(repo, run_id, context):
     )
 
 
-def event(kind, identity, details, *, severity="ALTA", ad=None, result=None, review_id=None):
+def event(kind, identity, details, *, severity="ALTA", ad=None, result=None, review_id=None, partner="wr_motos"):
     ad, result = ad or {}, result or {}
     return {
         "alert_type": kind,
         "severity": severity,
-        "partner": "wr_motos",
+        "partner": partner,
         "external_id": ad.get("external_id"),
         "manufacturer": ad.get("manufacturer"),
         "scanner_key": result.get("scanner_key"),
         "review_item_id": review_id,
-        "deduplication_key": hashlib.sha256(encode([kind, "wr_motos", identity]).encode()).hexdigest(),
+        "deduplication_key": hashlib.sha256(encode([kind, partner, identity]).encode()).hexdigest(),
         "title": TITLES[kind],
         "message": "Hipótese sobre a base consultada; não confirma ausência nem falta de suporte."
         if kind == "POSSIVEL_NOVA_MOTO"
@@ -60,14 +61,16 @@ def event(kind, identity, details, *, severity="ALTA", ad=None, result=None, rev
 
 
 def detect(repo, run, context, config):
+    partner = run.get("partner", "wr_motos")
+    make_event = partial(event, partner=partner)
     summary = json.loads(run["summary_json"])
     events, condition_types = [], []
     success = run["status"] in {"SUCCESS", "PARTIAL_SUCCESS"}
     failures = [
         dict(zip(("id", "status", "stage"), r))
         for r in repo.connection.execute(
-            "SELECT p.id,p.status,json_extract(d.context_json,'$.stage') FROM pipeline_runs p LEFT JOIN alert_deliveries d ON d.pipeline_run_id=p.id WHERE p.id<=? AND p.status IN ('SUCCESS','PARTIAL_SUCCESS','FAILED') ORDER BY p.id DESC",
-            (run["id"],),
+            "SELECT p.id,p.status,json_extract(d.context_json,'$.stage') FROM pipeline_runs p LEFT JOIN alert_deliveries d ON d.pipeline_run_id=p.id WHERE p.id<=? AND p.partner=? AND p.status IN ('SUCCESS','PARTIAL_SUCCESS','FAILED') ORDER BY p.id DESC",
+            (run["id"], partner),
         )
     ]
     streak = 0
@@ -103,7 +106,7 @@ def detect(repo, run, context, config):
                 if context.get("stage") == "collection"
                 else "Não foi possível publicar a atualização; dados anteriores preservados.",
             }
-            events.append(event("FALHA_PIPELINE", "pipeline", details, severity=severity))
+            events.append(make_event("FALHA_PIPELINE", "pipeline", details, severity=severity))
             if context.get("stage") == "collection":
                 collection_severity = (
                     "CRITICA"
@@ -113,7 +116,7 @@ def detect(repo, run, context, config):
                     else "ATENCAO"
                 )
                 events.append(
-                    event(
+                    make_event(
                         "FALHA_COLETA",
                         "collection",
                         {**details, "consecutive_failures": collection_streak},
@@ -125,7 +128,7 @@ def detect(repo, run, context, config):
             condition_types.append("COLETA_PARCIAL")
         if run["status"] == "PARTIAL_SUCCESS" or context.get("partial"):
             events.append(
-                event(
+                make_event(
                     "COLETA_PARCIAL",
                     "collection",
                     {
@@ -180,7 +183,7 @@ def detect(repo, run, context, config):
             identity = [ad["external_id"], base_id]
             if new and config.new_ad_enabled:
                 events.append(
-                    event(
+                    make_event(
                         "NOVO_ANUNCIO",
                         ad["external_id"],
                         details,
@@ -207,11 +210,11 @@ def detect(repo, run, context, config):
                     ),
                 )
                 # A new, well-parsed unmatched ad or the existing conservative absence rule.
-                key = event("POSSIVEL_NOVA_MOTO", identity, details)["deduplication_key"]
+                key = make_event("POSSIVEL_NOVA_MOTO", identity, details)["deduplication_key"]
                 existing = repo.connection.execute("SELECT 1 FROM alerts WHERE deduplication_key=?", (key,)).fetchone()
                 if new or reason or existing:
                     events.append(
-                        event(
+                        make_event(
                             "POSSIVEL_NOVA_MOTO",
                             identity,
                             {
@@ -231,22 +234,22 @@ def detect(repo, run, context, config):
                 and status in {"SEM_SUPORTE", "SUPORTE_PARCIAL"}
                 and enabled_conditions[status]
             ):
-                events.append(event(status, identity, details, ad=ad, result=result, review_id=rid))
+                events.append(make_event(status, identity, details, ad=ad, result=result, review_id=rid))
             if (
                 config.high_priority_review_enabled
                 and rid
                 and rid > context.get("review_max_before", 0)
                 and priority(result, item.get("review_state") or "pending", load_policy()) == "high"
             ):
-                events.append(event("REVISAO_ALTA_PRIORIDADE", rid, details, ad=ad, result=result, review_id=rid))
+                events.append(make_event("REVISAO_ALTA_PRIORIDADE", rid, details, ad=ad, result=result, review_id=rid))
     if config.stale_decision_enabled:
         for row in repo.connection.execute(
-            "SELECT e.decision_id,e.import_id,e.reason,e.review_item_id,d.import_id,d.action,d.candidate_key FROM review_events e JOIN review_decisions d ON d.id=e.decision_id WHERE e.id<=? AND e.import_id=? AND e.reason LIKE 'STALE%'",
-            (context.get("review_event_max", 0), base_id),
+            "SELECT e.decision_id,e.import_id,e.reason,e.review_item_id,d.import_id,d.action,d.candidate_key FROM review_events e JOIN review_decisions d ON d.id=e.decision_id JOIN review_items i ON i.id=e.review_item_id WHERE i.partner=? AND e.id<=? AND e.import_id=? AND e.reason LIKE 'STALE%'",
+            (partner, context.get("review_event_max", 0), base_id),
         ):
             decision_id, new_base, reason, rid, old_base, action, key = row
             events.append(
-                event(
+                make_event(
                     "DECISAO_DESATUALIZADA",
                     [decision_id, new_base],
                     {
@@ -262,7 +265,7 @@ def detect(repo, run, context, config):
             )
     if config.base_version_enabled and context.get("previous_base") and context["previous_base"] != base_id:
         events.append(
-            event(
+            make_event(
                 "NOVA_VERSAO_BASE",
                 base_id,
                 {"old_base_id": context["previous_base"], "base_id": base_id},
@@ -281,7 +284,9 @@ def process_pending(database, config=None):
                 "SELECT pipeline_run_id FROM alert_deliveries WHERE processed_at IS NULL ORDER BY pipeline_run_id"
             )
         ]
+    blocked_partners = set()
     for run_id in pending:
+        run = None
         try:
             with atomic_database(database):
                 with AlertRepository(database) as repo:
@@ -292,12 +297,14 @@ def process_pending(database, config=None):
                         continue
                     cursor = repo.connection.execute("SELECT * FROM pipeline_runs WHERE id=?", (run_id,))
                     run = dict(zip((c[0] for c in cursor.description), cursor.fetchone()))
+                    if run["partner"] in blocked_partners:
+                        continue
                     context = json.loads(delivery[0])
                     events, condition_types = detect(repo, run, context, config) if config.enabled else ([], [])
                     events = list({e["deduplication_key"]: e for e in events}.values())
                     counts = Counter()
                     keys = {e["deduplication_key"] for e in events}
-                    repo.clear_conditions(condition_types, keys)
+                    repo.clear_conditions(condition_types, keys, run["partner"])
                     # Collapse duplicate stale events before counting, and dedup exact observations across runs.
                     for e in events:
                         kind = e["alert_type"]
@@ -343,7 +350,10 @@ def process_pending(database, config=None):
                     "UPDATE pipeline_runs SET summary_json=json_set(summary_json,'$.alert_error',?) WHERE id=?",
                     ("Geração de alertas pendente; consulte o registro local.", run_id),
                 )
-            break  # Preserve event order; retry on the next pipeline or explicit CLI.
+            if run is not None:
+                blocked_partners.add(run["partner"])
+            # Other partners must still be processed; failed deliveries remain pending.
+            continue
 
 
 def safe_process(database):

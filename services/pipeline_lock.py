@@ -12,7 +12,11 @@ class AlreadyRunning(RuntimeError):
 
 
 class ExecutionLock:
-    def __init__(self, database, kind="pipeline"):
+    def __init__(self, database, kind="pipeline", *, partner="wr_motos"):
+        from partners.config import validate_key
+
+        if kind in {"pipeline", "scheduler"}:
+            kind = f"{kind}_{validate_key(partner)}"
         self.path = Path(str(Path(database).resolve()) + f".{kind}.lock")
         self.file = None
 

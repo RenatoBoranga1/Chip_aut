@@ -12,7 +12,9 @@ def fetch_collection(name, collector):
     from partners.models import CollectionResult
 
     try:
-        return collector.collect_motorcycles()
+        result = collector.collect() if hasattr(collector, "collect") else collector.collect_motorcycles()
+        validate_collection(name, result)
+        return result
     except Exception as exc:
         LOGGER.exception("collector_failed partner=%s", name)
         return CollectionResult(
@@ -48,5 +50,19 @@ def _collect_partners(collectors, database):
 def collect_partners(collectors, database):
     from services.pipeline_lock import ExecutionLock
 
-    with ExecutionLock(database):
-        return _collect_partners(collectors, database)
+    results = []
+    for name, collector in collectors.items():
+        with ExecutionLock(database, partner=name):
+            results.extend(_collect_partners({name: collector}, database))
+    return results
+
+
+def validate_collection(name, result):
+    from partners.config import validate_key
+
+    validate_key(name)
+    if result.partner != name or any(ad.partner != name or not ad.external_id for ad in result.advertisements):
+        raise ValueError("Origem ou identidade inválida no resultado da coleta")
+    ids = [ad.external_id for ad in result.advertisements]
+    if len(ids) != len(set(ids)):
+        raise ValueError("IDs duplicados na coleta do parceiro")

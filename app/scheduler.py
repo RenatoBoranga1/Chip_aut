@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from database.pipeline_repository import read_pipeline
+from partners.registry import PartnerRegistry
 from services.pipeline_service import LOGGER, run_pipeline
 from services.scheduler_config import DEFAULT_CONFIG, load_config
 from services.scheduler_service import scheduler_status, serve
@@ -19,11 +20,12 @@ def main(argv=None):
     parser.add_argument(
         "--config", type=Path, default=Path(os.environ.get("MOTO_SCHEDULER_CONFIG", str(DEFAULT_CONFIG)))
     )
+    parser.add_argument("--partner", default="wr_motos")
     parser.add_argument("--request-key", default=None)
     parser.add_argument("--json", action="store_true", help="Saída técnica para integração")
     args = parser.parse_args(argv)
     try:
-        config = load_config(args.config)
+        config = PartnerRegistry().get(args.partner).limits.apply(load_config(args.config))
         if args.command == "validate-config":
             output = {
                 "Configuração": "Válida",
@@ -31,14 +33,14 @@ def main(argv=None):
                 "Agendamento habilitado": config.enabled,
             }
         elif args.command == "start":
-            serve(args.db, args.config)
+            serve(args.db, args.config, partner_key=args.partner)
             output = {"Agendamento": "Encerrado"}
         elif args.command == "run-now":
-            output = run_pipeline(args.db, config, request_key=args.request_key)
+            output = run_pipeline(args.db, config, request_key=args.request_key, partner_key=args.partner)
         elif args.command == "status":
-            output = scheduler_status(args.db, config)
+            output = scheduler_status(args.db, config, partner_key=args.partner)
         else:
-            output = read_pipeline(args.db)
+            output = read_pipeline(args.db, partner=args.partner)
         if args.json or args.command in {"validate-config", "start"}:
             print(json.dumps(output, ensure_ascii=False, indent=2))
         elif args.command == "run-now":

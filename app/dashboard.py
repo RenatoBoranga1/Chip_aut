@@ -9,12 +9,16 @@ from pathlib import Path
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+# Streamlit puts app/ first; app/partners.py must not shadow the partners package.
+if str(ROOT) in sys.path:
+    sys.path.remove(str(ROOT))
+sys.path.insert(0, str(ROOT))
 
 from partners.images import IMAGE_FIELDS  # noqa: E402
+from partners.registry import PartnerRegistry  # noqa: E402
 from services.alert_service import AlertService  # noqa: E402
 from services.dashboard_service import DashboardConfig, DashboardService, filter_rows  # noqa: E402
+from services.partner_service import partner_status  # noqa: E402
 from services.review_presentation import decision_link  # noqa: E402
 from services.vehicle_image_config import load_image_config  # noqa: E402
 from ui.alert_panel import alert_center  # noqa: E402
@@ -37,7 +41,7 @@ from ui.vehicle_images import photo_cells, photo_filter, photo_metrics, vehicle_
 PAGES = [
     "Visão geral",
     "Fila de revisão",
-    "Estoque WR Motos",
+    "Estoque",
     "Sem suporte",
     "Suporte parcial",
     "Possíveis novas motos",
@@ -46,6 +50,7 @@ PAGES = [
     "Histórico",
     "Atualização automática",
     "Alertas",
+    "Parceiros",
     "Motos para desenvolvimento",
 ]
 
@@ -204,14 +209,16 @@ def main():
         config = replace(config, partner=st.query_params.get("partner", config.partner))
     service = DashboardService(config)
     st.sidebar.title("Cobertura de motos")
-    st.sidebar.caption("OPERAÇÃO · WR MOTOS")
+
     try:
+        registry = PartnerRegistry()
+        registry.get(config.partner)
         snapshot = service.snapshot()
-        partners = [config.partner] if direct else snapshot["partners"] or [config.partner]
+        partners = [config.partner] if direct else [p.partner_key for p in registry.list()]
         partner = st.sidebar.selectbox(
             "Parceiro",
             partners,
-            format_func=lambda v: cell("partner", v),
+            format_func=lambda v: registry.get(v).display_name,
             index=partners.index(config.partner) if config.partner in partners else 0,
         )
         if partner != config.partner:
@@ -271,7 +278,10 @@ def main():
         with st.expander("Detalhes, cobertura, prioridade e histórico"):
             detail(service, item["id"], include_form=False)
         return
-    page = st.sidebar.radio("Navegação", PAGES, key="navigation")
+    stock_page = "Estoque " + registry.get(service.config.partner).display_name
+    pages = [stock_page if p == "Estoque" else p for p in PAGES]
+    st.sidebar.caption("OPERAÇÃO · " + registry.get(service.config.partner).display_name.upper())
+    page = st.sidebar.radio("Navegação", pages, key="navigation")
     st.sidebar.caption(
         f"Base {snapshot['base_id']} · {'Somente leitura' if config.read_only else 'Revisões habilitadas'}"
     )
@@ -283,6 +293,23 @@ def main():
     if snapshot["zero_km_warning"]:
         st.warning(ZERO_KM)
     refresh_after_pipeline(service)
+    if page == "Parceiros":
+        st.caption("Parceiros configurados. Erros nas últimas 30 execuções; sem execução, erros da última coleta.")
+        st.table(
+            [
+                {
+                    "Nome": r["display_name"],
+                    "Chave": r["partner"],
+                    "Habilitado": "Sim" if r["enabled"] else "Não",
+                    "Última coleta": r["last_collection"] or "Sem coleta",
+                    "Situação": value(r["status"]) if r["status"] else "Sem execução",
+                    "Anúncios ativos": r["active_ads"],
+                    "Erros recentes": r["recent_errors"],
+                }
+                for r in partner_status(service.config.database, registry)
+            ]
+        )
+        return
     if page == "Motos para desenvolvimento":
         development_page(service)
     elif page == "Alertas":
@@ -405,7 +432,7 @@ def main():
         )
         if selected is not None:
             detail(service, selected)
-    elif page == "Estoque WR Motos":
+    elif page == stock_page:
         table(
             filtered(snapshot["stock"], "stock"),
             "stock",

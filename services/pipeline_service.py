@@ -20,8 +20,7 @@ from database.vehicle_images import save_vehicle_images
 from matching.review_policy import load_policy
 from matching.rules import load_matching_rules
 from partners.images import IMAGE_FIELDS
-from partners.wr_http import WRHTTPSource
-from partners.wr_motos import WRMotosCollector
+from partners.registry import PartnerRegistry
 from services.alert_service import enqueue, safe_process
 from services.collection_service import fetch_collection
 from services.coverage_service import build_coverage
@@ -71,18 +70,6 @@ def transient(errors):
     )
 
 
-def default_collector(config, folder):
-    return WRMotosCollector(
-        source=WRHTTPSource(
-            delay=config.delay_seconds,
-            timeout_ms=int(config.request_timeout_seconds * 1000),
-            max_pages=config.max_pages,
-            evidence_dir=folder,
-        ),
-        cache_ttl=0,
-    )
-
-
 def fingerprint(result, repo):
     # Exclude observation time and transport evidence, not identity, price, mileage or original text.
     ads = [
@@ -97,6 +84,7 @@ def fingerprint(result, repo):
         for t in ("review_decisions", "matching_reviews", "matching_memory")
     ]
     payload = [
+        result.partner,
         sorted(ads, key=lambda a: a["external_id"]),
         base,
         versions,
@@ -107,7 +95,21 @@ def fingerprint(result, repo):
     return hashlib.sha256(encode(payload).encode()).hexdigest()
 
 
-def run_pipeline(database, config, *, trigger="manual", request_key=None, collector_factory=None, sleeper=time.sleep):
+def run_pipeline(
+    database,
+    config,
+    *,
+    trigger="manual",
+    request_key=None,
+    collector_factory=None,
+    sleeper=time.sleep,
+    partner_key="wr_motos",
+    registry=None,
+):
+    registry = registry or PartnerRegistry()
+    settings = registry.get(partner_key, require_enabled=True)
+    if collector_factory is None:
+        config = settings.limits.apply(config)
     if trigger not in {"manual", "scheduled"}:
         raise ValueError("Origem da execução inválida")
     database = Path(database).resolve()
@@ -117,18 +119,18 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
     # Migrations before the lock allow a skipped attempt to be recorded as well.
     with PipelineRepository(database):
         pass
-    lock = ExecutionLock(database)
+    lock = ExecutionLock(database, partner=partner_key)
     try:
         lock.__enter__()
     except AlreadyRunning:
         with atomic_database(database):
             with PipelineRepository(database) as repo:
-                previous = repo.existing(request_key)
+                previous = repo.existing(request_key, partner_key)
                 if previous:
-                    return read_pipeline(database, run_id=previous)["runs"][0]
-                skipped = repo.start(trigger, config.digest, request_key, "SKIPPED_ALREADY_RUNNING")
+                    return read_pipeline(database, partner=partner_key, run_id=previous)["runs"][0]
+                skipped = repo.start(trigger, config.digest, request_key, "SKIPPED_ALREADY_RUNNING", partner_key)
                 repo.finish(skipped, "SKIPPED_ALREADY_RUNNING", 0, {}, "Atualização já em andamento")
-        return read_pipeline(database, run_id=skipped)["runs"][0]
+        return read_pipeline(database, partner=partner_key, run_id=skipped)["runs"][0]
     started = time.monotonic()
     run_id = None
     summary = {"attempts": 0, "warnings": {}, "errors": []}
@@ -136,26 +138,27 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
     try:
         safe_process(database)
         with PipelineRepository(database) as repo:
-            repo.recover()
-            previous = repo.existing(request_key)
+            repo.recover(partner_key)
+            previous = repo.existing(request_key, partner_key)
             if previous:
-                return read_pipeline(database, run_id=previous)["runs"][0]
-            run_id = repo.start(trigger, config.digest, request_key)
+                return read_pipeline(database, partner=partner_key, run_id=previous)["runs"][0]
+            run_id = repo.start(trigger, config.digest, request_key, partner=partner_key)
             summary["ads_before"] = repo.connection.execute(
-                "SELECT COUNT(*) FROM partner_advertisements WHERE partner='wr_motos' AND not_seen_in_latest_collection=0"
+                "SELECT COUNT(*) FROM partner_advertisements WHERE partner=? AND not_seen_in_latest_collection=0",
+                (partner_key,),
             ).fetchone()[0]
             if repo.connection.execute("SELECT MAX(id) FROM imports").fetchone()[0] is None:
                 raise ValueError("Importe a base do scanner antes da atualização")
         LOGGER.info("Execução %s iniciada; origem=%s", run_id, trigger)
         folder = Path(config.reports) / f"run-{run_id:06d}"
-        factory = collector_factory or default_collector
+        factory = collector_factory or (lambda conf, target: registry.for_pipeline(partner_key, conf, target))
         with activity(database, run_id, config.heartbeat_seconds):
             alert_context["stage"] = "collection"
             for attempt in range(config.max_retries + 1):
                 summary["attempts"] = attempt + 1
                 LOGGER.info("Execução %s: coleta; tentativa=%s", run_id, attempt + 1)
-                result = fetch_collection("wr_motos", factory(config, folder / f"attempt-{attempt + 1}"))
-                if result.partner != "wr_motos":
+                result = fetch_collection(partner_key, factory(config, folder / f"attempt-{attempt + 1}"))
+                if result.partner != partner_key:
                     raise ValueError("Parceiro retornado pela coleta é inválido")
                 if result.complete and not result.errors:
                     break
@@ -176,28 +179,30 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
                         "SELECT COALESCE(MAX(id),0) FROM review_items"
                     ).fetchone()[0]
                     previous_coverage = repo.connection.execute(
-                        "SELECT import_id FROM coverage_runs ORDER BY id DESC LIMIT 1"
+                        "SELECT c.import_id FROM coverage_runs c JOIN partner_collections p ON p.id=c.collection_id WHERE p.partner=? ORDER BY c.id DESC LIMIT 1",
+                        (partner_key,),
                     ).fetchone()
                     alert_context["previous_base"] = previous_coverage[0] if previous_coverage else None
                     before = {
                         r[0]
                         for r in repo.connection.execute(
-                            "SELECT external_id FROM partner_advertisements WHERE partner='wr_motos' AND not_seen_in_latest_collection=0"
+                            "SELECT external_id FROM partner_advertisements WHERE partner=? AND not_seen_in_latest_collection=0",
+                            (partner_key,),
                         )
                     }
                     known = {
                         r[0]
                         for r in repo.connection.execute(
-                            "SELECT external_id FROM partner_advertisements WHERE partner='wr_motos'"
+                            "SELECT external_id FROM partner_advertisements WHERE partner=?", (partner_key,)
                         )
                     }
                     stamp = fingerprint(result, repo)
                     prior = repo.connection.execute(
-                        "SELECT collection_run_id,summary_json FROM pipeline_runs WHERE status IN ('SUCCESS','PARTIAL_SUCCESS') AND fingerprint=? ORDER BY id DESC LIMIT 1",
-                        (stamp,),
+                        "SELECT collection_run_id,summary_json FROM pipeline_runs WHERE status IN ('SUCCESS','PARTIAL_SUCCESS') AND fingerprint=? AND partner=? ORDER BY id DESC LIMIT 1",
+                        (stamp, partner_key),
                     ).fetchone()
                     latest = repo.connection.execute(
-                        "SELECT MAX(id) FROM partner_collections WHERE partner='wr_motos'"
+                        "SELECT MAX(id) FROM partner_collections WHERE partner=?", (partner_key,)
                     ).fetchone()[0]
                     reuse = prior is not None and prior[0] == latest
                     current = {a.external_id for a in result.advertisements}
@@ -279,7 +284,8 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
                 )
                 if not isinstance(exc, (KeyboardInterrupt, SystemExit)):
                     next_run = repo.connection.execute(
-                        "SELECT next_run_at FROM scheduler_state WHERE id=1 AND status='RUNNING'"
+                        "SELECT next_run_at FROM scheduler_partners WHERE partner=? AND status='RUNNING'",
+                        (partner_key,),
                     ).fetchone()
                     alert_context["next_run_at"] = next_run[0] if next_run else None
                     enqueue(repo, run_id, alert_context)
@@ -288,4 +294,4 @@ def run_pipeline(database, config, *, trigger="manual", request_key=None, collec
             raise
     finally:
         lock.__exit__()
-    return read_pipeline(database, run_id=run_id)["runs"][0]
+    return read_pipeline(database, partner=partner_key, run_id=run_id)["runs"][0]

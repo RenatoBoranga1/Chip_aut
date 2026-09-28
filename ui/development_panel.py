@@ -120,7 +120,7 @@ def origin_picker(dashboard, rows, key, scanner=False):
 def development_page(dashboard):
     try:
         service = DevelopmentService(dashboard.config)
-        initial = service.listing()
+        initial = service.listing(filters={"partner": [dashboard.config.partner]})
     except Exception as exc:
         report_error(exc)
         return
@@ -173,6 +173,7 @@ def development_page(dashboard):
             "status": "Situação",
         }
         sort = st.selectbox("Ordenar desenvolvimento por", list(sorts), format_func=sorts.get)
+    filters["partner"] = [dashboard.config.partner]
     filtered = service.listing(filters=filters, text=text, sort=sort)
     page = st.selectbox("Página de desenvolvimento", range(1, max(1, (filtered["total"] + 7) // 8) + 1))
     result = filtered if page == 1 else service.listing(filters=filters, text=text, sort=sort, page=page - 1)

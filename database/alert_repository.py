@@ -136,7 +136,12 @@ def read_alerts(database, partner=None):
             item = dict(row)
             item["details"] = json.loads(item.pop("details_json"))
             result.append(item)
-        pending = db.execute("SELECT COUNT(*) FROM alert_deliveries WHERE processed_at IS NULL").fetchone()[0]
+        modern = any(r[1] == "partner" for r in db.execute("PRAGMA table_info(pipeline_runs)"))
+        pending = db.execute(
+            "SELECT COUNT(*) FROM alert_deliveries d JOIN pipeline_runs p ON p.id=d.pipeline_run_id WHERE d.processed_at IS NULL AND "
+            + ("1=1" if partner is None else "p.partner=?" if modern else "?='wr_motos'"),
+            () if partner is None else (partner,),
+        ).fetchone()[0]
         from database.development_alert_repository import read_development_alerts
 
         return {"alerts": result + read_development_alerts(database, partner), "pending": pending}

@@ -284,18 +284,52 @@ def list_items(path, filters=None, text="", sort="priority", page=0, size=8):
                 (*params, size, page * size),
             )
         ]
-        metrics = {r[0]: r[1] for r in db.execute("SELECT status,count(*) FROM development_items GROUP BY status")}
+        # Counters and facets use the same partner scope, while retaining multiple origins.
+        scope_partners = (filters or {}).get("partner", [])
+        scope = (
+            (
+                " WHERE EXISTS(SELECT 1 FROM development_origins o WHERE o.item_id=d.id AND o.partner IN ("
+                + ",".join("?" for _ in scope_partners)
+                + "))"
+            )
+            if scope_partners
+            else ""
+        )
+        metrics = {
+            r[0]: r[1]
+            for r in db.execute(
+                "SELECT d.status,count(*) FROM development_items d" + scope + " GROUP BY d.status", scope_partners
+            )
+        }
         metrics["active"] = sum(v for k, v in metrics.items() if k not in {"COMPLETED", "DISCARDED"})
         metrics["high"] = db.execute(
-            "SELECT count(*) FROM development_items WHERE priority='high' AND status NOT IN ('COMPLETED','DISCARDED')"
+            "SELECT count(*) FROM development_items d"
+            + scope
+            + (" AND " if scope else " WHERE ")
+            + "d.priority='high' AND d.status NOT IN ('COMPLETED','DISCARDED')",
+            scope_partners,
         ).fetchone()[0]
         facets = {
-            key: [r[0] for r in db.execute(f"SELECT DISTINCT {key} FROM development_items ORDER BY {key}")]
+            key: [
+                r[0]
+                for r in db.execute(
+                    f"SELECT DISTINCT d.{key} FROM development_items d" + scope + f" ORDER BY d.{key}", scope_partners
+                )
+            ]
             for key in ("manufacturer", "year", "assigned_to")
         }
-        facets["partner"] = [
-            r[0] for r in db.execute("SELECT DISTINCT partner FROM development_origins ORDER BY partner")
-        ]
+        facets["partner"] = (
+            list(scope_partners)
+            if scope_partners
+            else [r[0] for r in db.execute("SELECT DISTINCT partner FROM development_origins ORDER BY partner")]
+        )
+        for row in rows:
+            # The image belongs to its observed origin, even when the item is shared.
+            origin = db.execute(
+                "SELECT partner FROM development_origins WHERE item_id=? AND json_extract(payload_json,'$.advertisement.primary_image_url')=? ORDER BY last_seen_at DESC,id DESC LIMIT 1",
+                (row["id"], row["primary_image_url"]),
+            ).fetchone()
+            row["partner"] = origin[0] if origin else (row["partners"] or "wr_motos").split(",")[0]
         return {"items": rows, "total": total, "metrics": metrics, "facets": facets, "installed": True}
 
 

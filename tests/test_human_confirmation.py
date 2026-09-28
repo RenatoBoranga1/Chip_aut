@@ -243,7 +243,7 @@ def test_labels_read_only_and_existing_schema(dashboard):
     dashboard.opportunities()
     assert dump(dashboard.config.database) == before
     with DashboardRepository(dashboard.config.database) as repo:
-        assert repo.connection.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 11
+        assert repo.connection.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 12
         assert repo.connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
 
 

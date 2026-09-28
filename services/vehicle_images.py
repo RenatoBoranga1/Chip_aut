@@ -23,7 +23,6 @@ from services.vehicle_image_metrics import count, record_batch
 
 LOGGER = logging.getLogger(__name__)
 CACHE_DIR = Path(__file__).resolve().parents[1] / "data" / "cache" / "images"
-ALLOWED_HOSTS = frozenset({"www.wrmotos.com.br", "media.integradordeanuncios.com.br"})
 LOCKS = [threading.Lock() for _ in range(32)]
 POOL = ThreadPoolExecutor(max_workers=4, thread_name_prefix="vehicle-photo")
 NETWORK_LIMIT = threading.BoundedSemaphore(4)
@@ -46,23 +45,26 @@ def raster_format(content):
     raise ValueError("Conteúdo não tem assinatura de foto permitida")
 
 
-def safe_download_url(url):
+def safe_download_url(url, partner="wr_motos"):
+    from partners.registry import PartnerRegistry
+
+    allowed_hosts = PartnerRegistry().get(partner).image_hosts
     if image_url(url, "") != url:
         raise ValueError("URL de foto inválida")
     host = urlsplit(url).hostname
-    if host not in ALLOWED_HOSTS:
+    if host not in allowed_hosts:
         raise ValueError("Origem de foto não observada no parceiro")
     addresses = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
     if not addresses or any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses):
         raise ValueError("Destino de foto não público")
 
 
-def download_thumbnail(url, width, config):
+def download_thumbnail(url, width, config, *, partner="wr_motos"):
     deadline = time.monotonic() + config.request_timeout_seconds
     with requests.Session() as session:
         session.headers.update({"User-Agent": "MotoCoverageMonitor/0.3"})
         for hop in range(config.max_redirects + 1):
-            safe_download_url(url)
+            safe_download_url(url, **({"partner": partner} if partner != "wr_motos" else {}))
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise TimeoutError("Prazo da foto excedido")
@@ -98,9 +100,9 @@ def download_thumbnail(url, width, config):
     raise ValueError("Foto indisponível")
 
 
-def _thumbnail(url, width, config, cache_dir, time_bucket):
-    key = (url, width, config, str(cache_dir))
-    with LOCKS[int(digest(url, width)[:2], 16) % len(LOCKS)]:
+def _thumbnail(url, width, config, cache_dir, time_bucket, partner="wr_motos"):
+    key = (partner, url, width, config, str(cache_dir))
+    with LOCKS[int(digest(url, width, partner)[:2], 16) % len(LOCKS)]:
         now = time.time()
         with MEMORY_LOCK:
             saved = MEMORY.get(key)
@@ -109,7 +111,7 @@ def _thumbnail(url, width, config, cache_dir, time_bucket):
                 count("memory_hits" if saved[1] else "failure_cache_hits")
                 return saved[1]
             MEMORY.pop(key, None)
-        content = read_cached(url, width, config, cache_dir)
+        content = read_cached(url, width, config, cache_dir, partner=partner)
         if content:
             count("disk_hits")
             # Do not extend the disk expiration through an in-memory entry.
@@ -118,8 +120,10 @@ def _thumbnail(url, width, config, cache_dir, time_bucket):
         try:
             with NETWORK_LIMIT, configured_limit(config.max_concurrent_downloads):
                 count("downloads")
-                content = download_thumbnail(url, width, config)
-            write_cached(url, width, content, config, cache_dir)
+                content = download_thumbnail(
+                    url, width, config, **({"partner": partner} if partner != "wr_motos" else {})
+                )
+            write_cached(url, width, content, config, cache_dir, partner=partner)
         except Exception as exc:
             LOGGER.debug("Foto indisponível: %s", type(exc).__name__)
             count("failures")
@@ -142,11 +146,11 @@ def clear_memory():
 _thumbnail.cache_clear = clear_memory
 
 
-def thumbnail(url, config, *, detail=False, cache_dir=None):
+def thumbnail(url, config, *, detail=False, cache_dir=None, partner="wr_motos"):
     if not config.enabled or not url:
         return None
     width = 420 if detail else config.thumbnail_width
-    return _thumbnail(url, width, config, str(cache_dir or CACHE_DIR), None)
+    return _thumbnail(url, width, config, str(cache_dir or CACHE_DIR), None, partner)
 
 
 @dataclass(frozen=True)
@@ -178,7 +182,7 @@ def resolve_photo(row, config, *, detail=False, cache_dir=None, loader=None):
     loader = loader or thumbnail
     urls = photo_urls(row)
     for url in urls:
-        options = {}
+        options = {"partner": row["partner"]} if row.get("partner", "wr_motos") != "wr_motos" else {}
         if detail:
             options["detail"] = True
         if cache_dir is not None:
@@ -189,7 +193,7 @@ def resolve_photo(row, config, *, detail=False, cache_dir=None, loader=None):
     previous = list(dict.fromkeys([*urls, *row.get("cached_image_urls", [])]))[:5]
     for url in previous:
         for width in [420, config.thumbnail_width] if detail else [config.thumbnail_width, 420]:
-            content = read_cached(url, width, config, cache_dir or CACHE_DIR)
+            content = read_cached(url, width, config, cache_dir or CACHE_DIR, partner=row.get("partner", "wr_motos"))
             if content:
                 count("fallback_hits")
                 return PhotoResult(content, "available", "saved")
@@ -203,7 +207,9 @@ def visible_photos(rows, config, *, cache_dir=None):
     visible = rows[:8]
     if config.enabled:
         cleanup_cache(cache_dir or CACHE_DIR, config)
-    keys = [tuple([*photo_urls(r), "|", *r.get("cached_image_urls", [])]) for r in visible]
+    keys = [
+        tuple([r.get("partner", "wr_motos"), *photo_urls(r), "|", *r.get("cached_image_urls", [])]) for r in visible
+    ]
     unique = {key: r for key, r in zip(keys, visible) if should_show_vehicle_image(r, config)}
     photos = dict(zip(unique, POOL.map(lambda r: resolve_photo(r, config, cache_dir=cache_dir), unique.values())))
     output = [

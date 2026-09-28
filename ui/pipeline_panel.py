@@ -6,6 +6,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from partners.registry import PartnerRegistry
 from services.scheduler_config import DEFAULT_CONFIG, load_config
 from services.scheduler_service import launch_manual, scheduler_status
 from ui.textos import value
@@ -15,30 +16,33 @@ def automatic_updates(service, table):
     config_path = Path(os.environ.get("MOTO_SCHEDULER_CONFIG", str(DEFAULT_CONFIG)))
     config = load_config(config_path)
     page = st.number_input("Página das execuções", min_value=1, value=1, step=1)
-    data = scheduler_status(service.config.database, config, page - 1)
+    data = scheduler_status(service.config.database, config, page - 1, partner_key=service.config.partner)
     st.subheader("Atualização automática")
     st.write("Agendamento: " + value(data["schedule_status"]))
     st.caption("O agendamento funciona em um processo separado deste painel.")
     st.write("Próxima atualização prevista: " + (data["next_local"] or "Sem previsão ativa"))
     st.caption("Fuso horário: " + config.timezone)
-    if "pipeline_request" not in st.session_state:
-        st.session_state.pipeline_request = str(uuid.uuid4())
+    request_field = "pipeline_request_" + service.config.partner
+    if request_field not in st.session_state:
+        st.session_state[request_field] = str(uuid.uuid4())
     if st.button(
-        "Executar atualização agora", disabled=service.config.read_only or service.config.partner != "wr_motos"
+        "Executar atualização agora",
+        disabled=service.config.read_only or not PartnerRegistry().get(service.config.partner).enabled,
     ):
         try:
             launch_manual(
                 service.config.database,
                 config_path,
-                request_key=st.session_state.pipeline_request,
+                request_key=st.session_state[request_field],
                 read_only=service.config.read_only,
+                partner_key=service.config.partner,
             )
         except Exception:
             st.error("Não foi possível solicitar a atualização. Confira a configuração e tente novamente.")
         else:
             st.info("Solicitação enviada. Acompanhe o resultado no histórico abaixo.")
     if st.button("Preparar nova solicitação"):
-        st.session_state.pipeline_request = str(uuid.uuid4())
+        st.session_state[request_field] = str(uuid.uuid4())
     if service.config.read_only:
         st.caption("Modo somente leitura: atualizações manuais estão desabilitadas.")
     st.subheader("Execuções automáticas")
@@ -48,20 +52,25 @@ def automatic_updates(service, table):
         from database.pipeline_repository import read_pipeline
 
         if related not in {r["id"] for r in runs}:
-            runs.extend(read_pipeline(service.config.database, run_id=related)["runs"])
+            runs.extend(read_pipeline(service.config.database, run_id=related, partner=service.config.partner)["runs"])
     table(
         [
             {
                 "pipeline_run_id": r["id"],
                 "Quantidade de falhas": len(r["summary"].get("errors", [])),
                 "Quantidade de avisos": sum(r["summary"].get("warnings", {}).values()),
-                **{k: r[k] for k in ("started_at", "trigger_type", "status", "duration_seconds", "error_summary")},
-                **{k: r["summary"].get(k) for k in ("ads_after", "new", "reappeared", "disappeared")},
+                **{
+                    k: r[k]
+                    for k in ("partner", "started_at", "trigger_type", "status", "duration_seconds", "error_summary")
+                },
+                **{k: r["summary"].get(k) for k in ("ads_after", "new", "reappeared", "returned", "disappeared")},
             }
             for r in runs
         ],
         "pipeline_runs",
     )
+    if related not in {r["id"] for r in runs}:
+        related = None
     selected = st.selectbox(
         "Ver detalhes da execução",
         [None, *[r["id"] for r in runs]],
@@ -110,13 +119,13 @@ def automatic_updates(service, table):
 def refresh_after_pipeline(service):
     from database.pipeline_repository import read_pipeline
 
-    runs = read_pipeline(service.config.database, limit=1)["runs"]
+    runs = read_pipeline(service.config.database, limit=1, partner=service.config.partner)["runs"]
     marker = (
         (runs[0]["id"], runs[0]["status"], runs[0]["summary"].get("alerts"), runs[0]["summary"].get("alert_error"))
         if runs
         else None
     )
-    key = "pipeline_last_seen"
+    key = "pipeline_last_seen_" + service.config.partner
     if key in st.session_state and st.session_state[key] != marker:
         st.session_state[key] = marker
         st.rerun()

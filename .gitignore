@@ -37,3 +37,6 @@ reports/
 *.pipeline.lock
 *.scheduler.lock
 *.schema.lock
+
+*.pipeline_*.lock
+*.scheduler_*.lock

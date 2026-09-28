@@ -342,7 +342,7 @@ def test_scheduler_observability_requires_recent_activity(setup):
     assert scheduler_status(path, cfg)["next_local"]
     with PipelineRepository(path) as repo:
         with repo.connection:
-            repo.connection.execute("UPDATE scheduler_state SET heartbeat_at='2000-01-01T00:00:00+00:00'")
+            repo.connection.execute("UPDATE scheduler_partners SET heartbeat_at='2000-01-01T00:00:00+00:00'")
     assert scheduler_status(path, cfg)["schedule_status"] == "STALE_ACTIVITY"
     assert scheduler_status(path, cfg)["next_local"] is None
 
@@ -473,7 +473,7 @@ def test_concurrent_schema_upgrade_from_previous_version(setup):
 
     with sqlite3.connect(setup[0]) as db:
         db.executescript(
-            "DROP TABLE scheduler_state; DROP TABLE pipeline_runs; DELETE FROM schema_version WHERE version=8;"
+            "DROP TABLE scheduler_partners; DROP TABLE scheduler_state; DROP TABLE pipeline_runs; DELETE FROM schema_version WHERE version IN (8,12);"
         )
     barrier = threading.Barrier(2)
 
@@ -483,7 +483,7 @@ def test_concurrent_schema_upgrade_from_previous_version(setup):
             return repo.connection.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        assert list(pool.map(open_repository, range(2))) == [11, 11]
+        assert list(pool.map(open_repository, range(2))) == [12, 12]
 
 
 def test_duplicate_busy_request_is_recorded_once(setup):

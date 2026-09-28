@@ -1,0 +1,11 @@
+{
+  "partners": {
+    "wr_motos": {
+      "display_name": "WR Motos",
+      "collector": "wr_motos",
+      "enabled": true,
+      "limits": {"timeout_seconds": 30, "retries": 2, "delay_seconds": 2, "concurrency": 1, "max_pages": 100},
+      "image_hosts": ["www.wrmotos.com.br", "media.integradordeanuncios.com.br"]
+    }
+  }
+}

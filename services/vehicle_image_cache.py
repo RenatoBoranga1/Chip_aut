@@ -19,9 +19,11 @@ DISK_LOCK = threading.RLock()
 MANAGED = re.compile(r"[0-9a-f]{64}(?:\.jpg|\.[0-9a-f]{32}\.tmp)\Z")
 
 
-def digest(url, width):
+def digest(url, width, partner="wr_motos"):
     # Keep v1 filenames compatible with the already deployed thumbnail cache.
-    return hashlib.sha256(f"v1|{width}|{url}".encode()).hexdigest()
+    return hashlib.sha256(
+        (f"v1|{width}|{url}" if partner == "wr_motos" else f"v2|{partner}|{width}|{url}").encode()
+    ).hexdigest()
 
 
 def regular_child(path, root):
@@ -100,12 +102,12 @@ def cleanup_cache(directory, config):
         return {"removed": 0, "bytes": None, "error": type(exc).__name__}
 
 
-def read_cached(url, width, config, directory):
+def read_cached(url, width, config, directory, *, partner="wr_motos"):
     if not config.cache_enabled:
         return None
     try:
         root = root_path(directory)
-        path = root / (digest(url, width) + ".jpg")
+        path = root / (digest(url, width, partner) + ".jpg")
         if not regular_child(path, root):
             return None
         stat = path.stat()
@@ -123,17 +125,17 @@ def read_cached(url, width, config, directory):
     return None
 
 
-def write_cached(url, width, content, config, directory):
+def write_cached(url, width, content, config, directory, *, partner="wr_motos"):
     if not config.cache_enabled or len(content) > int(config.cache_max_mb * 1024 * 1024):
         return False
     temporary = None
     try:
         with guard(directory) as root:
-            target = root / (digest(url, width) + ".jpg")
+            target = root / (digest(url, width, partner) + ".jpg")
             if target.is_symlink() or target.is_junction():
                 return False
             _cleanup(root, config, reserve=len(content))
-            temporary = root / (digest(url, width) + f".{uuid4().hex}.tmp")
+            temporary = root / (digest(url, width, partner) + f".{uuid4().hex}.tmp")
             with temporary.open("xb") as stream:
                 stream.write(content)
             temporary.replace(target)

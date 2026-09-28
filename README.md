@@ -939,8 +939,7 @@ novas motos. Continuam no detalhe, nos filtros, na persistência e nas regras.
 O estoque também apresenta as novas situações. Consultas continuam somente leitura;
 os links validam o parceiro e `MOTO_READ_ONLY=1` bloqueia decisões.
 
-Sem nova migration ou integração de parceiro. A arquitetura multi-parceiro do
-Milestone 8 permanece adiada. Consulte
+O Milestone 7.1 não adicionou migration ou integração de parceiro. Consulte
 [RESULTADOS_MILESTONE_7_1.md](RESULTADOS_MILESTONE_7_1.md).
 
 ## Próximas etapas
@@ -949,3 +948,59 @@ Notificações externas, novos parceiros, atualização automática da planilha,
 serviço Windows definitivo e deploy permanecem fora desta entrega.
 As validações anteriores continuam documentadas nos respectivos arquivos
 `VALIDACAO*` e `RESULTADOS_MILESTONE_3*`.
+
+
+## Milestone 8 — arquitetura multi-parceiro
+
+Somente **WR Motos** está registrada e habilitada em `config/partners.json`.
+Nenhum novo parceiro foi integrado neste milestone.
+
+O fluxo comum é `PartnerRegistry → PartnerAdapter → run_pipeline(partner_key)
+→ persistência → matching → revisão → alertas → desenvolvimento`.
+`PartnerMotorcycle` continua sendo o modelo canônico; preço, quilometragem, zero km
+ou imagem podem estar ausentes. Primeira e última aparição continuam na persistência.
+O adapter declara suas capacidades, coleta e normaliza anúncios. A WR mantém seus
+IDs, duas categorias de zero km, paginação, evidências e tratamento de conflitos.
+
+```powershell
+python -m app.partners list
+python -m app.partners status
+python -m app.partners show wr_motos
+python -m app.scheduler status --partner wr_motos
+python -m app.scheduler history --partner wr_motos
+python -m app.scheduler run-now --partner wr_motos
+python -m app.scheduler start --partner wr_motos
+```
+
+`MOTO_PARTNERS_CONFIG` permite escolher outro arquivo de configuração. O registry
+valida chaves, duplicações, adapters e limites. Não importa módulos arbitrários da
+configuração. A lista `registry.list(enabled_only=True)` prepara a enumeração dos
+habilitados; cada processo de scheduler executa um parceiro explícito.
+
+Os limites da coleta automática vêm de `partners.json`: intervalo mínimo entre
+requisições 2 s, timeout 30 s, 2 retries transitórios, concorrência 1 e 100 páginas
+para WR. O calendário e backoff continuam em `scheduler.json`. Bloqueios e HTTP 429
+não são repetidos. Concorrência acima da capacidade do adapter é recusada; o coletor
+WR continua sequencial. `collector_factory` é a injeção legada para testes: mantém
+os limites explícitos de `SchedulerConfig`; execução normal usa o registry.
+
+Locks e solicitações idempotentes são separados por parceiro. A migration aditiva
+012 atribui execuções antigas à WR, mantém a chave original e cria estado de scheduler
+por parceiro. Interrompa processos da versão anterior antes da atualização, pois
+os nomes dos locks mudaram. O lock de schema continua global para migrations SQLite;
+transações de publicação são curtas e atômicas. O SQLite ainda serializa escritores.
+A primeira execução com escrita aplica migrations; navegar ou consultar status não.
+
+Dashboard: seletor vindo do registry, página **Parceiros**, métricas e histórico
+por parceiro. Estoque, revisão, oportunidades, alertas e desenvolvimento respeitam
+a seleção. Desenvolvimento continua permitindo múltiplas origens, sem alterar
+as regras de deduplicação de identidades incertas ou a decisão humana do M7.1.
+
+Miniaturas usam parceiro + URL + tamanho na memória e no disco. Os arquivos antigos
+WR continuam válidos; outros parceiros têm namespace distinto. A quota de disco é
+compartilhada e limitada. Origens de imagem são permitidas explicitamente por parceiro,
+com as proteções existentes de URL, DNS público, redirecionamento, tamanho e formato.
+
+Veja [como adicionar um parceiro](docs/COMO_ADICIONAR_PARCEIRO.md) e
+[RESULTADOS_MILESTONE_8.md](RESULTADOS_MILESTONE_8.md). O segundo adapter é fictício e
+existe somente em `tests/test_partner_architecture.py`; não aparece na operação.

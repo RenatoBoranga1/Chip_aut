@@ -43,7 +43,7 @@ def collect(path, ads, complete=True):
     with PartnerRepository(path) as repo:
         return repo.save_collection(
             CollectionResult(
-                partner="wr_motos",
+                partner=ads[0].partner if ads else "wr_motos",
                 collected_at=ads[0].collected_at if ads else "now",
                 advertisements=ads,
                 complete=complete,
@@ -353,7 +353,7 @@ def test_migration_from_v5_preserves_data_and_reopens(tmp_path):
     for _ in range(2):
         with ReviewRepository(path) as repo:
             assert repo.connection.execute("SELECT source_path FROM imports").fetchone()[0] == "untouched"
-            assert repo.connection.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 11
+            assert repo.connection.execute("SELECT MAX(version) FROM schema_version").fetchone()[0] == 12
             assert repo.connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
             assert not repo.connection.execute("PRAGMA foreign_key_check").fetchall()
 

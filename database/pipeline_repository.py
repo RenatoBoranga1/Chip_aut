@@ -10,28 +10,31 @@ from services.scheduler_config import utcnow
 
 
 class PipelineRepository(SQLiteRepository):
-    def start(self, trigger, config_hash, request_key=None, status="RUNNING"):
+    def start(self, trigger, config_hash, request_key=None, status="RUNNING", partner="wr_motos"):
         stamp = utcnow().isoformat()
         with self.connection:
             cursor = self.connection.execute(
-                "INSERT INTO pipeline_runs(request_key,started_at,heartbeat_at,trigger_type,status,config_hash) VALUES (?,?,?,?,?,?)",
-                (request_key, stamp, stamp, trigger, status, config_hash),
+                "INSERT INTO pipeline_runs(partner_request_key,started_at,heartbeat_at,trigger_type,status,config_hash,partner) VALUES (?,?,?,?,?,?,?)",
+                (request_key, stamp, stamp, trigger, status, config_hash, partner),
             )
         return cursor.lastrowid
 
-    def existing(self, key):
+    def existing(self, key, partner="wr_motos"):
         if not key:
             return None
-        row = self.connection.execute("SELECT id FROM pipeline_runs WHERE request_key=?", (key,)).fetchone()
+        row = self.connection.execute(
+            "SELECT id FROM pipeline_runs WHERE partner=? AND COALESCE(partner_request_key,request_key)=?",
+            (partner, key),
+        ).fetchone()
         return row[0] if row else None
 
-    def recover(self):
+    def recover(self, partner="wr_motos"):
         stamp = utcnow().isoformat()
         # Called ONLY while holding the OS execution lock, never merely on an expired heartbeat.
         with self.connection:
             self.connection.execute(
-                "UPDATE pipeline_runs SET status='CANCELLED',finished_at=?,duration_seconds=MAX(0,(julianday(?)-julianday(started_at))*86400),error_summary=? WHERE status='RUNNING'",
-                (stamp, stamp, "Processo anterior encerrado; bloqueio recuperado com segurança"),
+                "UPDATE pipeline_runs SET status='CANCELLED',finished_at=?,duration_seconds=MAX(0,(julianday(?)-julianday(started_at))*86400),error_summary=? WHERE status='RUNNING' AND partner=?",
+                (stamp, stamp, "Processo anterior encerrado; bloqueio recuperado com segurança", partner),
             )
 
     def beat(self, run_id):
@@ -59,30 +62,39 @@ class PipelineRepository(SQLiteRepository):
                     (ad.collected_at, ad.partner, ad.external_id, ad.collected_at),
                 )
 
-    def scheduler(self, config, due, status):
+    def scheduler(self, config, due, status, partner="wr_motos"):
         with self.connection:
             self.connection.execute(
-                "INSERT INTO scheduler_state VALUES (1,?,?,?,?) ON CONFLICT(id) DO UPDATE SET heartbeat_at=excluded.heartbeat_at,next_run_at=excluded.next_run_at,config_hash=excluded.config_hash,status=excluded.status",
-                (utcnow().isoformat(), due.isoformat() if due else None, config.digest, status),
+                "INSERT INTO scheduler_partners VALUES (?,?,?,?,?) ON CONFLICT(partner) DO UPDATE SET heartbeat_at=excluded.heartbeat_at,next_run_at=excluded.next_run_at,config_hash=excluded.config_hash,status=excluded.status",
+                (partner, utcnow().isoformat(), due.isoformat() if due else None, config.digest, status),
             )
 
 
-def read_pipeline(database, limit=30, offset=0, run_id=None):
+def read_pipeline(database, limit=30, offset=0, run_id=None, partner="wr_motos"):
     path = Path(database).resolve()
     if not path.is_file():
         return {"runs": [], "scheduler": None}
     with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as db:
         db.row_factory = sqlite3.Row
-        if not db.execute("SELECT 1 FROM sqlite_master WHERE name='pipeline_runs'").fetchone():
+        columns = {r[1] for r in db.execute("PRAGMA table_info(pipeline_runs)")}
+        if not columns or ("partner" not in columns and partner != "wr_motos"):
             return {"runs": [], "scheduler": None}
-        if run_id is None:
-            rows = db.execute("SELECT * FROM pipeline_runs ORDER BY id DESC LIMIT ? OFFSET ?", (limit, offset))
-        else:
-            rows = db.execute("SELECT * FROM pipeline_runs WHERE id=?", (run_id,))
+        where, args = ("partner=?", [partner]) if "partner" in columns else ("1=1", [])
+        if run_id is not None:
+            where += " AND id=?"
+            args.append(run_id)
+        rows = db.execute(
+            f"SELECT * FROM pipeline_runs WHERE {where} ORDER BY id DESC LIMIT ? OFFSET ?", (*args, limit, offset)
+        )
         runs = []
         for row in rows:
             item = dict(row)
+            item.setdefault("partner", "wr_motos")
+            item["request_key"] = item.pop("partner_request_key", None) or item["request_key"]
             item["summary"] = json.loads(item.pop("summary_json"))
             runs.append(item)
-        state = db.execute("SELECT * FROM scheduler_state WHERE id=1").fetchone()
+        if "partner" in columns:
+            state = db.execute("SELECT * FROM scheduler_partners WHERE partner=?", (partner,)).fetchone()
+        else:
+            state = db.execute("SELECT * FROM scheduler_state WHERE id=1").fetchone()
         return {"runs": runs, "scheduler": dict(state) if state else None}
