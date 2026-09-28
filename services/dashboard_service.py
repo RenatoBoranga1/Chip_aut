@@ -15,6 +15,7 @@ from matching.review_policy import signature
 from matching.rules import load_matching_rules
 from partners.images import IMAGE_FIELDS
 from scanner_base.normalizer import normalize_model, normalize_text
+from services.prioritization_hooks import after_change
 from services.refinement_service import diagnostics, probable_absence
 from services.review_presentation import presentation
 
@@ -241,6 +242,7 @@ class DashboardService:
                 collection["delta"] = repo.collection_delta(collection["id"], self.config.partner)
             return {"collections": collections, **repo.history(self.config.partner, 30, page * 30)}
 
+    @after_change
     def submit(self, item_id, action, reviewer, note, candidate_key, submission_id, revision):
         if self.config.read_only:
             raise ValueError("Dashboard em modo somente leitura")

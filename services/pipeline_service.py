@@ -261,6 +261,9 @@ def run_pipeline(
                     ).fetchone()[0]
                     enqueue(repo, run_id, alert_context)
         safe_process(database)
+        from services.prioritization_service import safe_refresh
+
+        safe_refresh(database, partner_key, "collection")
         LOGGER.info(
             "Execução %s concluída; resultado=%s; anúncios=%s; avisos=%s",
             run_id,

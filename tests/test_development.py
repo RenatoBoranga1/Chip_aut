@@ -267,7 +267,7 @@ def test_immutable_history_and_migration_integrity(dev):
         assert db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         assert not db.execute("PRAGMA foreign_key_check").fetchall()
     with SQLiteRepository(dev.config.database) as repo:
-        assert repo.connection.execute("SELECT max(version) FROM schema_version").fetchone()[0] == 12
+        assert repo.connection.execute("SELECT max(version) FROM schema_version").fetchone()[0] == 13
     assert dev.detail(item)
 
 
@@ -420,7 +420,7 @@ def test_new_database_without_migration_read_does_not_write(tmp_path):
     with sqlite3.connect(path) as db:
         assert db.execute("SELECT max(version) FROM schema_version").fetchone()[0] == 10
     with SQLiteRepository(path) as repo:
-        assert repo.connection.execute("SELECT max(version) FROM schema_version").fetchone()[0] == 12
+        assert repo.connection.execute("SELECT max(version) FROM schema_version").fetchone()[0] == 13
 
 
 def test_create_from_review_alert_and_scanner_share_identity(dev, tmp_path):

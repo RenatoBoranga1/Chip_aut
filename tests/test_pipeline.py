@@ -483,7 +483,7 @@ def test_concurrent_schema_upgrade_from_previous_version(setup):
             return repo.connection.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        assert list(pool.map(open_repository, range(2))) == [12, 12]
+        assert list(pool.map(open_repository, range(2))) == [13, 13]
 
 
 def test_duplicate_busy_request_is_recorded_once(setup):

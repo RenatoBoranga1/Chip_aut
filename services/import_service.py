@@ -90,4 +90,7 @@ def import_base(source: Path, database: Path, rules_path: Path = DEFAULT_RULES):
             }
         )
     )
+    from services.prioritization_service import safe_refresh
+
+    safe_refresh(database, origin="scanner_import")
     return base, report

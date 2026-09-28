@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "enabled": true,
+  "score_min": 0,
+  "score_max": 100,
+  "thresholds": {
+    "high": 75,
+    "medium": 45
+  },
+  "weights": {
+    "base_status": 30,
+    "recurrence": 20,
+    "pending_time": 20,
+    "development": 15,
+    "operational_evidence": 10,
+    "data_quality": 5
+  },
+  "base_factors": {
+    "confirmed_absent": 1,
+    "unsupported": 1,
+    "partial_support": 0.75,
+    "not_found": 0.55,
+    "ambiguous": 0.5,
+    "unknown_support": 0.4,
+    "review": 0.35,
+    "supported": 0
+  },
+  "pending_full_days": 30,
+  "recurrence_full_days": 30,
+  "freshness_days": 7,
+  "stale_after_hours": 24,
+  "reassess_hours": 6,
+  "high_pending_days": 14,
+  "allow_manual_override": true,
+  "alerts_enabled": true
+}

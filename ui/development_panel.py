@@ -248,6 +248,9 @@ def development_detail(dashboard, service, item_id):
         st.warning(
             "Confira o andamento: o prazo de acompanhamento nesta situação foi ultrapassado. Não representa falha técnica."
         )
+    from ui.prioritization_panel import development_priority
+
+    development_priority(dashboard, item)
     st.subheader("Origem")
     pages = max(1, (max(item["history_count"], item["origin_count"]) + 29) // 30)
     history_page = st.selectbox("Página de origens e histórico", range(1, pages + 1), key=f"dev_history_{item_id}")

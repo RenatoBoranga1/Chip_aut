@@ -83,6 +83,10 @@ def main():
             else:
                 result = repo.show(args.item_id)
                 output = render(result)
+        if args.command in COMMANDS:
+            from services.prioritization_service import safe_refresh
+
+            safe_refresh(args.db, origin="review")
         # ASCII JSON remains valid UTF-8 under Windows pipe codepages as well.
         print(json.dumps(result, ensure_ascii=True, indent=2) if args.as_json else output)
     except ValueError as exc:

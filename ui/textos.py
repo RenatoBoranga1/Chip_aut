@@ -6,6 +6,9 @@ import re
 LOGGER = logging.getLogger(__name__)
 
 ALERT_TYPES = {
+    "PRIORITY_HIGH": "Prioridade sugerida passou a alta",
+    "PRIORITY_PENDING": "Alta prioridade aguardando revisão",
+    "PRIORITY_OUTDATED": "Avaliação de prioridade desatualizada",
     "DEV_NEW": "Desenvolvimento: novo item prioritário",
     "DEV_STALE": "Desenvolvimento: acompanhar prazo",
     "DEV_VALIDATION": "Desenvolvimento: em validação",

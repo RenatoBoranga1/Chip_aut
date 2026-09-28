@@ -51,6 +51,7 @@ PAGES = [
     "Atualização automática",
     "Alertas",
     "Parceiros",
+    "Priorização operacional",
     "Motos para desenvolvimento",
 ]
 
@@ -293,6 +294,11 @@ def main():
     if snapshot["zero_km_warning"]:
         st.warning(ZERO_KM)
     refresh_after_pipeline(service)
+    if page == "Priorização operacional":
+        from ui.prioritization_panel import prioritization_page
+
+        prioritization_page(service)
+        return
     if page == "Parceiros":
         st.caption("Parceiros configurados. Erros nas últimas 30 execuções; sem execução, erros da última coleta.")
         st.table(

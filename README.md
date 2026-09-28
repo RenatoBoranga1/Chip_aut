@@ -1,7 +1,7 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1 a 7.1, incluindo confirmação humana de presença na base.** Parser, normalização,
+**Entrega atual: Milestones 1 a 9, incluindo priorização operacional explicável.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
 funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
 preliminar, painel Streamlit, agendamento independente e acompanhamento de necessidades confirmadas para desenvolvimento.
@@ -1004,3 +1004,75 @@ com as proteções existentes de URL, DNS público, redirecionamento, tamanho e 
 Veja [como adicionar um parceiro](docs/COMO_ADICIONAR_PARCEIRO.md) e
 [RESULTADOS_MILESTONE_8.md](RESULTADOS_MILESTONE_8.md). O segundo adapter é fictício e
 existe somente em `tests/test_partner_architecture.py`; não aparece na operação.
+
+
+## Milestone 9 — Priorização operacional
+
+A página **Priorização operacional** apresenta sugestões de atenção, separadas das decisões
+humanas de matching e da prioridade do desenvolvimento. Uma pontuação alta não comprova
+necessidade de desenvolvimento. Somente WR Motos permanece configurada e habilitada.
+
+O motor determinístico usa seis contribuições: situação na base (30), permanência observada
+(20), tempo pendente (20), encaminhamento para desenvolvimento (15), evidência operacional
+adicional (10) e qualidade/atualidade (5). Os pesos são hipóteses operacionais configuráveis
+em `config/prioritization.json`, normalizados pela soma para uma escala de 0 a 100.
+Alta começa em 75; média em 45; abaixo de 45 é baixa. Identidade incompleta ou ausência de
+comparação vigente produz **Informações insuficientes**, sem pontuação oficial.
+
+Ausência confirmada, resultado não encontrado, ambiguidade, suporte parcial, sem suporte
+e suporte desconhecido têm regras distintas. Presença confirmada utiliza a correspondência
+registrada. Dúvida humana continua pendente. Observações repetidas não são demanda independente;
+a recorrência exige datas distintas. Fotos e novidade do ano não pontuam. Eventos correlacionados
+não são somados pela quantidade de alertas. Evidência suficiente/parcial/insuficiente descreve
+qualidade dos dados, sem representar probabilidade estatística.
+
+### Ativação e atualização
+
+A primeira avaliação é explícita: **Reavaliar casos** no painel ou:
+
+```powershell
+python -m app.prioritization refresh --db data/coverage.sqlite3 --partner wr_motos
+python -m app.prioritization list --db data/coverage.sqlite3 --read-only
+python -m app.prioritization simulate --db data/coverage.sqlite3 --policy config/prioritization.json --read-only
+```
+
+A ativação aplica migrations pendentes e grava avaliações. Faça backup antes de executar
+sobre o banco operacional. A validação desta entrega usou uma cópia, preservando o original.
+`MOTO_PRIORITIZATION_CONFIG` seleciona a política oficial. `--policy` seleciona somente a
+configuração candidata do comando de simulação. `MOTO_READ_ONLY=1` impede reavaliação e
+alteração manual; consultas e simulação continuam disponíveis.
+
+Após ativação, publicação válida do pipeline, importação da base, decisões da revisão e
+mudanças de desenvolvimento acionam a verificação. O scheduler independente verifica versões
+de dados, mudanças da política e prazo de seis horas. Comandos legados de coleta/cobertura
+são detectados no próximo ciclo do scheduler ou por reavaliação explícita. É necessário manter
+o scheduler em execução para atualização por tempo. Renderizar o Streamlit nunca recalcula.
+A interface sinaliza dados/política alterados ou avaliação sem verificação há 24 horas.
+
+### Escolha humana, auditoria e simulação
+
+**Alterar prioridade** exige responsável e justificativa, registra data e histórico imutável,
+e mantém a escolha em recálculos. **Restaurar sugestão automática** também é auditado.
+Formulários desatualizados são recusados. Isso não altera matching, decisão de presença,
+responsável, etapa ou prioridade do item de desenvolvimento.
+
+Cada avaliação guarda critérios, contribuições, evidências, versão e conteúdo da política,
+base, coleta e origem. Avaliações materialmente iguais não duplicam o histórico. Há filtros,
+ordenação estável, oito casos por página, fotos carregadas pela infraestrutura existente,
+detalhe e acesso à revisão, anúncio e desenvolvimento relacionado. O filtro de parceiro
+utiliza o PartnerRegistry.
+
+A central de alertas recebe entrada em prioridade alta, alta pendente além do prazo e
+avaliação alta desatualizada, com deduplicação e sem execuções fictícias de coleta.
+Casos já relacionados a desenvolvimento não geram esses avisos adicionais.
+O simulador compara pesos sobre a mesma leitura dos dados, sem gravar avaliações, alertas
+ou escolhas humanas. Não existe aprendizado automático de pesos.
+
+Para desabilitar, configure `enabled: false`; o histórico permanece consultável. Também
+há `allow_manual_override` e `alerts_enabled`. Configurações incompletas, versões desconhecidas,
+valores negativos, não finitos ou limites incompatíveis são recusados.
+
+Limitações: os pesos precisam de validação operacional; dados antigos reduzem a confiabilidade;
+o processamento lê as avaliações atuais do parceiro em lote e reaproveita a revalidação
+existente da revisão, adequada ao volume observado, sem promessa de escala ilimitada.
+Resultados e evidências da entrega estão em [RESULTADOS_MILESTONE_9.md](RESULTADOS_MILESTONE_9.md).

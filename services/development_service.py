@@ -19,6 +19,7 @@ from services.development_policy import (
     TRANSITIONS,
     load_development_config,
 )
+from services.prioritization_hooks import after_change
 from services.scheduler_config import utcnow
 
 
@@ -91,6 +92,7 @@ class DevelopmentService:
             raise ValueError("Responsável fora da lista configurada")
         return value
 
+    @after_change
     def create(
         self,
         kind,
@@ -190,6 +192,7 @@ class DevelopmentService:
         if self.policy["alerts_enabled"]:
             repo.notify(item_id, kind, key, severity, title, message, stamp)
 
+    @after_change
     def change(
         self, item_id, action, value, *, actor, justification, command_key, expected_revision, completion_version=None
     ):

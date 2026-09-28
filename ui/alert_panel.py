@@ -9,6 +9,12 @@ from ui.textos import ALERT_ACTIONS, ALERT_SEVERITIES, ALERT_STATES, ALERT_TYPES
 from ui.vehicle_images import vehicle_photo
 
 
+def alert_label(identifier):
+    if isinstance(identifier, str):
+        return "Priorização #" + identifier.split(":")[-1]
+    return f"Alerta #{identifier}" if identifier > 0 else f"Desenvolvimento #{abs(identifier)}"
+
+
 def navigate(page, field=None, identifier=None):
     st.session_state.navigation = page
     if field:
@@ -82,7 +88,7 @@ def alert_center(dashboard):
     st.table(
         [
             {
-                "Alerta": r["id"] if r["id"] > 0 else f"Desenvolvimento {abs(r['id'])}",
+                "Alerta": alert_label(r["id"]),
                 "Prioridade": ALERT_SEVERITIES[r["severity"]],
                 "Data": r["created_at"],
                 "Título": r["title"],
@@ -98,9 +104,7 @@ def alert_center(dashboard):
     selected = st.selectbox(
         "Abrir alerta",
         [None, *[r["id"] for r in visible]],
-        format_func=lambda n: (
-            (f"Alerta #{n}" if n > 0 else f"Desenvolvimento #{abs(n)}") if n else "Selecione um alerta"
-        ),
+        format_func=lambda n: alert_label(n) if n else "Selecione um alerta",
         key="alert_selection",
     )
     if selected is None:
@@ -121,9 +125,15 @@ def alert_center(dashboard):
     ad = details.get("advertisement", {})
     from ui.development_panel import offer_creation, open_item
 
+    if details.get("priority_case_id"):
+        st.button(
+            "Abrir avaliação operacional",
+            on_click=navigate,
+            args=("Priorização operacional", "priority_selection", details["priority_case_id"]),
+        )
     if details.get("development_item_id"):
         st.button("Abrir item de desenvolvimento", on_click=open_item, args=(details["development_item_id"],))
-    elif ad:
+    elif ad and not details.get("priority_case_id"):
         offer_creation(dashboard, "alert", selected, f"alert_{selected}")
     if ad:
         photo_ad = {**ad, **dashboard.image_metadata(ad)}

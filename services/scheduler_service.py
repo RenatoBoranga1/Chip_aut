@@ -113,6 +113,9 @@ def serve(
                 from services.development_alerts import safe_scan
 
                 safe_scan(database)
+                from services.prioritization_service import safe_refresh
+
+                safe_refresh(database, partner_key, "scheduled")
                 if max_ticks is not None and ticks >= max_ticks:
                     break
                 stop.wait(config.heartbeat_seconds)
