@@ -114,3 +114,20 @@ Carregamento em lote das evidências complementares; consultas atuais reutilizam
 de decisões já existente. Histórico e miniaturas não são carregados integralmente. A validação
 de desempenho cobre 171 anúncios locais, não constitui benchmark para volumes ilimitados.
 Sem IA generativa, novos parceiros, alteração do scanner ou notificações externas.
+
+
+## Verificação complementar de interface — 29/09/2026
+
+Fluxo executado no Edge com Playwright, em fixture isolada: validação de campos obrigatórios,
+alteração para prioridade baixa, recálculo preservando a escolha humana, restauração automática,
+simulação com comparação integral do dump SQLite antes/depois e navegação para a segunda página.
+Nenhum erro JavaScript de página. Capturas do detalhe e da tabela foram inspecionadas visualmente;
+são evidências locais ignoradas pelo Git. O formulário usa identificador distinto do estado de
+controle de concorrência. O teste Streamlit também abre o detalhe e verifica o bloqueio de gravação
+em modo somente leitura. Banco original, ambas as planilhas e migrations antigas reconferidos.
+
+A cópia dos 171 anúncios WR também foi aberta no navegador em modo somente leitura;
+a página e o detalhe carregaram, com reavaliação e gravação manual bloqueadas.
+Ruff, formatação, compileall, imports principais e git diff --check aprovados.
+
+Reexecução final com o detalhe coberto: **807 testes aprovados em 430,06 s**.

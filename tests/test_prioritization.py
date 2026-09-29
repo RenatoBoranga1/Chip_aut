@@ -344,6 +344,9 @@ def test_dashboard_and_cli_no_writes_on_navigation(priority, monkeypatch):
     app.sidebar.radio[0].set_value("Priorização operacional").run()
     assert not app.exception and not app.error
     assert next(b for b in app.button if b.label == "Reavaliar casos").disabled
+    next(s for s in app.selectbox if s.label == "Ver motivos da avaliação").set_value(1).run()
+    assert not app.exception and not app.error
+    assert next(b for b in app.button if b.label == "Salvar prioridade").disabled
     assert main(["list", "--db", str(priority.config.database)]) == 0
     assert main(["refresh", "--db", str(priority.config.database)]) == 1
     assert dump(priority.config.database) == before
