@@ -88,7 +88,9 @@ class SQLiteRepository:
         )
         return {key: json.loads(payload) for key, payload in rows}
 
-    def save_import(self, base: ParsedBase, source: str, digest: str, rules: dict, report: dict) -> tuple[int, dict]:
+    def save_import(
+        self, base: ParsedBase, source: str, digest: str, rules: dict, report: dict, *, prepared_version_id=None
+    ) -> tuple[int, dict]:
         db = self.connection
         # Acquire the write lock before reading the previous version.
         with db:
@@ -120,4 +122,7 @@ class SQLiteRepository:
                 "INSERT INTO import_issues(import_id,code,payload_json) VALUES (?,?,?)",
                 [(import_id, issue["code"], encode(issue)) for issue in base.issues],
             )
+            from database.scanner_repository import register_import
+
+            register_import(db, import_id, source, digest, report, prepared_version_id)
         return import_id, diff

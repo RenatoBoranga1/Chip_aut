@@ -6,6 +6,10 @@ import re
 LOGGER = logging.getLogger(__name__)
 
 ALERT_TYPES = {
+    "SCANNER_PUBLISHED": "Nova versão da base publicada",
+    "SCANNER_REVIEW": "Decisões precisam de revalidação",
+    "SCANNER_DEVELOPMENT": "Desenvolvimento possivelmente atendido",
+    "SCANNER_FAILED": "Falha na publicação da base",
     "PRIORITY_HIGH": "Prioridade sugerida passou a alta",
     "PRIORITY_PENDING": "Alta prioridade aguardando revisão",
     "PRIORITY_OUTDATED": "Avaliação de prioridade desatualizada",

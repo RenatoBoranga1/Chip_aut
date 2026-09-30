@@ -111,7 +111,9 @@ def serve(
                         thread.join(timeout=35)
                 ticks += 1
                 from services.development_alerts import safe_scan
+                from services.scanner_refresh import safe_resume
 
+                safe_resume(database)
                 safe_scan(database)
                 from services.prioritization_service import safe_refresh
 

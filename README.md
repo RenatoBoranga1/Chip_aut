@@ -1,7 +1,7 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1 a 9, incluindo priorização operacional explicável.** Parser, normalização,
+**Entrega atual: Milestones 1 a 10, incluindo atualização segura da base do scanner.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
 funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
 preliminar, painel Streamlit, agendamento independente e acompanhamento de necessidades confirmadas para desenvolvimento.
@@ -1076,3 +1076,27 @@ Limitações: os pesos precisam de validação operacional; dados antigos reduze
 o processamento lê as avaliações atuais do parceiro em lote e reaproveita a revalidação
 existente da revisão, adequada ao volume observado, sem promessa de escala ilimitada.
 Resultados e evidências da entrega estão em [RESULTADOS_MILESTONE_9.md](RESULTADOS_MILESTONE_9.md).
+
+
+## Milestone 10 — Atualização da base do scanner
+
+A página **Atualização da base do scanner** permite enviar XLSX, validar, comparar versões,
+consultar impacto e publicar mediante confirmação explícita. A preparação não altera a base
+operacional. Versões, bytes originais e SHA-256 ficam no banco privado; o Excel original não é
+sobrescrito. Registros/datas inválidos bloqueiam publicação. As diferenças usam identidade
+normalizada, preservando a distinção entre presença e suporte.
+
+Publicação transacional protege contra duplicidade, comparação desatualizada e concorrência.
+Matching/revisão são atualizados com anúncios existentes por trabalho recuperável. Decisões,
+desenvolvimento e prioridades manuais são preservados; alertas são resumos com acesso ao detalhe.
+A barra lateral agora inicia expandida. Rollback de versão não está exposto no painel.
+
+```powershell
+python -m app.scanner_base validate nova.xlsx
+python -m app.scanner_base compare nova.xlsx --author "Renato"
+python -m app.scanner_base list
+```
+
+Consulte [o procedimento completo](docs/ATUALIZACAO_BASE_SCANNER.md), incluindo confirmação,
+configuração, recuperação, CLI e limitações, e [os resultados](RESULTADOS_MILESTONE_10.md).
+A CLI antiga de importação serve para bootstrap; atualização operacional usa o novo fluxo.

@@ -410,6 +410,10 @@ class AlertService:
     def transition(self, alert_id, target):
         if self.config.read_only:
             raise ValueError("Painel em modo somente leitura")
+        if isinstance(alert_id, str) and alert_id.startswith("scanner:"):
+            from database.scanner_alert_repository import transition
+
+            return transition(self.config.database, alert_id, target, self.config.partner)
         if isinstance(alert_id, str) and alert_id.startswith("priority:"):
             from database.prioritization_alert_repository import transition
 

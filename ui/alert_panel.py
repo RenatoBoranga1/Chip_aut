@@ -11,7 +11,9 @@ from ui.vehicle_images import vehicle_photo
 
 def alert_label(identifier):
     if isinstance(identifier, str):
-        return "Priorização #" + identifier.split(":")[-1]
+        return ("Base do scanner #" if identifier.startswith("scanner:") else "Priorização #") + identifier.split(":")[
+            -1
+        ]
     return f"Alerta #{identifier}" if identifier > 0 else f"Desenvolvimento #{abs(identifier)}"
 
 
@@ -125,6 +127,12 @@ def alert_center(dashboard):
     ad = details.get("advertisement", {})
     from ui.development_panel import offer_creation, open_item
 
+    if details.get("scanner_version_id"):
+        st.button(
+            "Abrir versão da base",
+            on_click=navigate,
+            args=("Atualização da base do scanner", "scanner_selection", details["scanner_version_id"]),
+        )
     if details.get("priority_case_id"):
         st.button(
             "Abrir avaliação operacional",

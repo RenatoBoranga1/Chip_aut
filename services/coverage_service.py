@@ -25,10 +25,12 @@ GROUPS = (
 )
 
 
-def build_coverage(collection_id, database, destination, rules_path=DEFAULT_MATCHING_RULES, *, update_queue=True):
+def build_coverage(
+    collection_id, database, destination, rules_path=DEFAULT_MATCHING_RULES, *, update_queue=True, external_ids=None
+):
     with PartnerRepository(database) as repo:
         collection = repo.get_collection(collection_id)
-    ads = collection.advertisements
+    ads = [a for a in collection.advertisements if external_ids is None or a.external_id in external_ids]
     queries = [MotorcycleQuery(a.manufacturer or "", a.model or "", a.year, a.version or "") for a in ads]
     runs = match_many(queries, database, rules_path)
     reviews = [None] * len(ads)

@@ -52,6 +52,7 @@ PAGES = [
     "Alertas",
     "Parceiros",
     "Priorização operacional",
+    "Atualização da base do scanner",
     "Motos para desenvolvimento",
 ]
 
@@ -202,8 +203,10 @@ def detail(service, item_id, include_form=True):
 
 
 def main():
-    st.set_page_config(page_title="Cobertura de motos · Operação", page_icon="🏍", layout="wide")
-    st.markdown("<style>[data-testid='stToolbar'], #MainMenu {display:none}</style>", unsafe_allow_html=True)
+    st.set_page_config(
+        page_title="Cobertura de motos · Operação", page_icon="🏍", layout="wide", initial_sidebar_state="expanded"
+    )
+    st.markdown("<style>[data-testid='stAppDeployButton'], #MainMenu {display:none}</style>", unsafe_allow_html=True)
     config = DashboardConfig.from_env()
     direct = st.query_params.get("review")
     if direct:
@@ -294,6 +297,11 @@ def main():
     if snapshot["zero_km_warning"]:
         st.warning(ZERO_KM)
     refresh_after_pipeline(service)
+    if page == "Atualização da base do scanner":
+        from ui.scanner_panel import scanner_page
+
+        scanner_page(service)
+        return
     if page == "Priorização operacional":
         from ui.prioritization_panel import prioritization_page
 

@@ -248,8 +248,14 @@ def development_detail(dashboard, service, item_id):
         st.warning(
             "Confira o andamento: o prazo de acompanhamento nesta situação foi ultrapassado. Não representa falha técnica."
         )
+    from database.scanner_alert_repository import development_notice
     from ui.prioritization_panel import development_priority
 
+    scanner_version = development_notice(dashboard.config.database, item["id"])
+    if scanner_version:
+        st.info(
+            "Possivelmente atendida pela nova versão da base. Presença não confirma suporte; confira antes de alterar o desenvolvimento."
+        )
     development_priority(dashboard, item)
     st.subheader("Origem")
     pages = max(1, (max(item["history_count"], item["origin_count"]) + 29) // 30)

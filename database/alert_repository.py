@@ -144,14 +144,22 @@ def read_alerts(database, partner=None):
         ).fetchone()[0]
         from database.development_alert_repository import read_development_alerts
         from database.prioritization_alert_repository import read_priority_alerts
+        from database.scanner_alert_repository import read_scanner_alerts
 
         return {
-            "alerts": result + read_development_alerts(database, partner) + read_priority_alerts(database, partner),
+            "alerts": result
+            + read_development_alerts(database, partner)
+            + read_priority_alerts(database, partner)
+            + read_scanner_alerts(database, partner),
             "pending": pending,
         }
 
 
 def read_alert_history(database, alert_id, partner):
+    if isinstance(alert_id, str) and alert_id.startswith("scanner:"):
+        from database.scanner_alert_repository import history
+
+        return history(database, alert_id, partner)
     if isinstance(alert_id, str) and alert_id.startswith("priority:"):
         from database.prioritization_alert_repository import history
 

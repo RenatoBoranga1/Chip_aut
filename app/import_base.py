@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sqlite3
 from pathlib import Path
 
 from services.import_service import DEFAULT_RULES, import_base
@@ -15,6 +16,15 @@ def main():
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     try:
+        if args.db.is_file():
+            with sqlite3.connect(args.db.resolve().as_uri() + "?mode=ro", uri=True) as db:
+                if (
+                    db.execute("SELECT 1 FROM sqlite_master WHERE name='imports'").fetchone()
+                    and db.execute("SELECT COUNT(*) FROM imports").fetchone()[0]
+                ):
+                    parser.error(
+                        "Já existe uma base operacional. Use app.scanner_base compare e publish com confirmação explícita."
+                    )
         base, report = import_base(args.file, args.db, args.rules)
         destination = args.reports / f"import-{report['import_id']:04d}"
         write_reports(base, report, destination)
