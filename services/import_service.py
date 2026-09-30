@@ -7,10 +7,10 @@ from hashlib import sha256
 from pathlib import Path
 
 from database.repository import SQLiteRepository
+from scanner_base.adapters import application_diagnostics, parse_scanner_workbook
 from scanner_base.aggregator import consolidate
 from scanner_base.excel_reader import read_excel
 from scanner_base.normalizer import normalize_text
-from scanner_base.parser import parse_workbook
 from scanner_base.status import STATUSES
 
 LOGGER = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ def import_base(source: Path, database: Path, rules_path: Path = DEFAULT_RULES):
     rules = load_rules(rules_path)
     before = file_digest(source)
     book = read_excel(source)
-    base = parse_workbook(book, rules)
+    base = parse_scanner_workbook(book, rules)
     consolidate(base)
     after = file_digest(source)
     if before != after:
@@ -52,6 +52,7 @@ def import_base(source: Path, database: Path, rules_path: Path = DEFAULT_RULES):
     for record in base.records:
         variants.setdefault(record.manufacturer, set()).add(record.raw_fields["manufacturer"])
     report = {
+        **application_diagnostics(base),
         "source": str(source.resolve()),
         "sha256": before,
         "source_unchanged": True,

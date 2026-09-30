@@ -199,7 +199,30 @@ class DashboardService:
     def scanner(self, text=""):
         with DashboardRepository(self.config.database) as repo:
             rows = [{**asdict(m), "scanner_key": m.key} for m in repo.motos]
-        return filter_rows(rows, text=text, sort="model")
+            applications = repo.scanner_applications() if text.strip() else []
+        technical = {}
+        for record in applications:
+            technical.setdefault(record["key"], []).extend([record["system"], record.get("cable", "")])
+        terms = normalize_text(text).split()
+        rows = [
+            r
+            for r in rows
+            if all(
+                term
+                in normalize_text(
+                    " ".join(
+                        [str(r.get(k) or "") for k in ("manufacturer", "model", "year", "key")]
+                        + technical.get(r["key"], [])
+                    )
+                )
+                for term in terms
+            )
+        ]
+        return filter_rows(rows, sort="model")
+
+    def scanner_applications(self, key):
+        with DashboardRepository(self.config.database) as repo:
+            return repo.scanner_applications(key)
 
     def search(self, text):
         snapshot = self.snapshot()

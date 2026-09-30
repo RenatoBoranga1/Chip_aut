@@ -20,6 +20,10 @@ class SystemRecord:
     cable: str
     cable_location: str
     duplicate_of: int | None = None
+    source_format: str = "LEGACY"
+    application_introduced_version: str | None = None
+    test_type: str | None = None
+    application_attributes: dict[str, str | None] = field(default_factory=dict)
 
 
 @dataclass
@@ -47,3 +51,5 @@ class ParsedBase:
     issues: list[dict] = field(default_factory=list)
     sheets: list[dict] = field(default_factory=list)
     rejected_rows: int = 0
+    source_format: str = "LEGACY"
+    metadata: dict = field(default_factory=dict)

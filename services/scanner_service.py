@@ -18,6 +18,7 @@ from database.scanner_repository import (
     snapshot,
 )
 from database.transaction import atomic_database
+from scanner_base.application_diff import application_differences
 from services.scanner_validation import config, differences, unpack, validate_upload
 from services.scheduler_config import utcnow
 
@@ -85,12 +86,16 @@ class ScannerService:
         current = active_import(db)
         old = snapshot(db, current)
         new = {m.key: asdict(m) for m in base.motorcycles}
-        summary, rows = differences(old, new, records(db, current), base.records)
+        previous_records = records(db, current)
+        summary, rows = differences(old, new, previous_records, base.records)
+        technical, application_rows = application_differences(previous_records, base.records)
+        rows.extend(application_rows)
         changed = {key for kind, key, _ in rows if kind in {"ADDED", "CHANGED"}}
         impact = impacts(db, new, changed)
         report = {
             **report,
             "comparison": summary,
+            "technical_comparison": technical,
             "review_affected": sum(k == "REVIEW" and r["reason"] not in {"VALID", "PENDING"} for k, _, r in impact),
             "development_affected": sum(k == "DEVELOPMENT" for k, _, _ in impact),
         }

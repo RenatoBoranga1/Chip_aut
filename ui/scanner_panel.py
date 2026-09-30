@@ -5,6 +5,7 @@ import json
 import streamlit as st
 
 from services.scanner_service import ScannerService
+from ui.scanner_applications import FIELDS
 from ui.textos import value
 
 STATUS = {
@@ -14,6 +15,10 @@ STATUS = {
     "SUPERSEDED": "Substituída",
 }
 KINDS = {
+    "APPLICATION_ADDED": "Aplicações adicionadas",
+    "APPLICATION_REMOVED": "Aplicações removidas",
+    "APPLICATION_CHANGED": "Atributos da aplicação alterados",
+    "APPLICATION_CABLE_CHANGED": "Cabo da aplicação alterado",
     "ADDED": "Adicionadas",
     "REMOVED": "Removidas",
     "CHANGED": "Alteradas",
@@ -43,6 +48,7 @@ def motorcycle_label(moto):
 
 def support_rows(items):
     labels = {
+        **FIELDS,
         "system": "Sistema",
         "release": "Lançamento",
         "situation": "Situação",
@@ -57,6 +63,12 @@ def support_rows(items):
         }
         for item in items
     ]
+
+
+def application_label(items):
+    if not items:
+        return "Não consta"
+    return " · ".join(f"{r['system']} / {r['cable'] or 'Cabo não informado'}" for r in items)
 
 
 def scanner_page(dashboard):
@@ -141,6 +153,58 @@ def scanner_page(dashboard):
     st.write("Observações: " + (item["notes"] or "Não informadas"))
     report = item["report"]
     comparison = report.get("comparison", {})
+    st.info("Formato detectado: " + report.get("format_label", "Formato legado — RESUMO MDL"))
+    display_table(
+        [
+            {
+                "Veículos identificados": report.get("unique_vehicles", item["unique_vehicles"]),
+                "Linhas de aplicações": report.get("applications", item["valid_records"]),
+                "Aplicações sem repetição exata": report.get("unique_applications", "Não apurado"),
+                "Sistemas distintos": report.get("unique_systems", "Não apurado"),
+            }
+        ]
+    )
+    if report.get("format") == "APPLICATION_GENERAL":
+        st.caption(
+            "VERS. pertence à aplicação. A versão oficial é esta publicação; aplicações listadas não recebem suporte inferido. Linhas repetidas e variantes ficam preservadas."
+        )
+    technical = report.get("technical_comparison", {})
+    if technical:
+        apps = technical["applications"]
+        display_table(
+            [
+                {"Aplicações (chaves veículo/sistema/cabo)": label, "Quantidade": apps[key]}
+                for key, label in [
+                    ("previous", "Base anterior"),
+                    ("new", "Nova base"),
+                    ("added", "Novas"),
+                    ("removed", "Removidas"),
+                    ("changed", "Alteradas"),
+                    ("cable_changed", "Com troca de cabo"),
+                    ("attributes_changed", "Com alteração de atributos"),
+                    ("unchanged", "Mantidas"),
+                ]
+            ]
+        )
+        systems = technical["systems"]
+        display_table(
+            [
+                {
+                    "Sistemas anteriores": systems["previous"],
+                    "Sistemas novos": systems["new"],
+                    "Nomes adicionados": len(systems["added"]),
+                    "Nomes removidos": len(systems["removed"]),
+                }
+            ]
+        )
+        with st.expander("Sistemas adicionados e removidos"):
+            display_table(
+                [
+                    {"Alteração": kind, "Sistema": name}
+                    for kind, names in (("Adicionado", systems["added"]), ("Removido", systems["removed"]))
+                    for name in names
+                ]
+            )
     display_table(
         [
             {"Indicador": label, "Quantidade": report.get(key, item.get(key, 0))}
@@ -189,8 +253,12 @@ def scanner_page(dashboard):
             {
                 "Tipo": KINDS[r["kind"]],
                 "Identidade": r["identity_key"],
-                "Antes": motorcycle_label(r["payload"].get("before")),
-                "Depois": r["payload"].get("message") or motorcycle_label(r["payload"].get("after")),
+                "Antes": application_label(r["payload"].get("before_applications"))
+                if r["kind"].startswith("APPLICATION_")
+                else motorcycle_label(r["payload"].get("before")),
+                "Depois": application_label(r["payload"].get("after_applications"))
+                if r["kind"].startswith("APPLICATION_")
+                else r["payload"].get("message") or motorcycle_label(r["payload"].get("after")),
             }
             for r in data["differences"]
         ]
@@ -206,12 +274,24 @@ def scanner_page(dashboard):
     )
     if chosen is not None:
         difference = data["differences"][chosen]["payload"]
+        if "before_applications" in difference:
+            from ui.scanner_applications import technical_rows
+
+            st.write("Aplicações anteriores")
+            display_table(technical_rows(difference["before_applications"]))
+            st.write("Aplicações novas")
+            display_table(technical_rows(difference["after_applications"]))
         st.write("Campos de suporte anteriores")
         display_table(support_rows(difference.get("support_before", [])))
         st.write("Campos de suporte novos")
         display_table(support_rows(difference.get("support_after", [])))
     with st.expander("Avisos de validação — até 30 por página"):
         issues = {
+            "APPLICATION_VARIANT": "Aplicação com atributos diferentes",
+            "UNRECOGNIZED_ATTRIBUTE": "Atributo sem valor SIM/NÃO reconhecido",
+            "SUMMARY_TOTAL_DIFFERS": "Resumo histórico diverge do consolidado",
+            "HISTORICAL_SUMMARY_NOT_AUTHORITATIVE": "Resumo histórico informativo",
+            "COMPLEMENTARY_RELEASE_WARNING": "Aba complementar exige conferência",
             "INVALID_DATE": "Data inválida",
             "REJECTED_ROW": "Registro rejeitado",
             "DUPLICATE_ROW": "Registro duplicado",
@@ -227,7 +307,7 @@ def scanner_page(dashboard):
                     "Aba": r.get("sheet", ""),
                     "Linha": str(r.get("row", r.get("rows", ""))),
                     "Aviso": issues.get(r["code"], "Aviso de leitura"),
-                    "Detalhe": r.get("detail", r.get("key", "")),
+                    "Detalhe": r.get("detail", r.get("raw_value", r.get("key", ""))),
                 }
                 for r in data["validation_issues"]
             ]

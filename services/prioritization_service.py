@@ -1,5 +1,6 @@
 """Explicit refresh/simulation and audited human priority, independent of matching."""
 
+import json
 import logging
 import time
 from collections import Counter
@@ -59,7 +60,29 @@ class PrioritizationService:
             repo.connection.execute("UPDATE priority_cases SET active=0 WHERE partner=?", (partner,))
             counts = Counter()
             changed = 0
+            retained = 0
+            previous_sources = {}
+            if origin == "scanner_publication":
+                previous_sources = {
+                    (r[1], r[2]): (r[0], json.loads(r[3]))
+                    for r in repo.connection.execute(
+                        "SELECT c.id,c.entity_id,c.identity_key,a.payload_json FROM priority_cases c JOIN priority_assessments a ON a.id=c.latest_assessment_id WHERE c.partner=?",
+                        (partner,),
+                    )
+                }
+
             for source in sources:
+                prior = previous_sources.get((source["entity_id"], source["identity_key"]))
+                if prior and prior[1].get("policy_hash") == policy_hash(self.policy):
+                    old_evidence = {
+                        k: v for k, v in prior[1].get("evidence", {}).items() if k != "scanner_base_version"
+                    }
+                    new_evidence = {k: v for k, v in source.items() if k != "scanner_base_version"}
+                    if old_evidence == new_evidence:
+                        repo.connection.execute("UPDATE priority_cases SET active=1 WHERE id=?", (prior[0],))
+                        retained += 1
+                        counts[prior[1]["suggested_priority"]] += 1
+                        continue
                 result = assess(source, self.policy, now)
                 case_id, assessment_id, updated, previous = repo.save(partner, source, result, origin)
                 changed += updated
@@ -101,10 +124,16 @@ class PrioritizationService:
                         )
             repo.connection.execute(
                 "INSERT INTO priority_maintenance VALUES (?,?,?,?) ON CONFLICT(partner) DO UPDATE SET checked_at=excluded.checked_at,source_token=excluded.source_token,policy_hash=excluded.policy_hash",
-                (partner, now.isoformat(), token, policy_hash(self.policy)),
+                (
+                    partner,
+                    prior_state[0] if retained and prior_state else now.isoformat(),
+                    token,
+                    policy_hash(self.policy),
+                ),
             )
         return {
-            "evaluated": len(sources),
+            "evaluated": len(sources) - retained,
+            "retained": retained,
             "changed": changed,
             "by_priority": dict(counts),
             "seconds": round(time.perf_counter() - start, 4),

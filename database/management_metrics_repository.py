@@ -85,6 +85,14 @@ class ManagementMetricsRepository:
                 )
             base_rows = rows("motorcycle_snapshots", "payload_json", "import_id=?", (base_id,))
             base = {r["payload"]["key"]: SimpleNamespace(**r["payload"]) for r in base_rows}
+            applications = [
+                dict(r)
+                for r in db.execute(
+                    "SELECT m.normalized_key AS key,json_extract(r.payload_json,'$.system_key') AS system,json_extract(r.payload_json,'$.duplicate_of') AS duplicate_of FROM system_records r JOIN motorcycles m ON m.id=r.motorcycle_id WHERE r.import_id=?",
+                    (base_id,),
+                )
+            ]
+
             previous_id = max((r["id"] for r in versions if base_id and r["id"] < base_id), default=None)
             previous_base = rows("motorcycle_snapshots", "payload_json", "import_id=?", (previous_id,))
 
@@ -277,6 +285,7 @@ class ManagementMetricsRepository:
                         }
                     )
             return {
+                "applications": applications,
                 "base_id": base_id,
                 "version": selected,
                 "base": [r["payload"] for r in base_rows],

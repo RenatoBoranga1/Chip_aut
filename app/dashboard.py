@@ -522,7 +522,7 @@ def main():
         with image_indicators:
             photo_metrics([r for group in opportunities.values() for r in group])
     elif page == "Base do scanner":
-        text = st.text_input("Buscar na base", placeholder="Fabricante, modelo, ano ou chave")
+        text = st.text_input("Buscar na base", placeholder="Fabricante, modelo, ano, sistema ou cabo")
         rows = service.scanner(text)
         table(
             rows, "scanner", ["manufacturer", "model", "year", "scanner_key", "status", "system_count", "latest_date"]
@@ -537,6 +537,9 @@ def main():
             offer_creation(service, "scanner", key, "scanner_" + key)
             moto = next(r for r in rows if r["key"] == key)
             systems(moto)
+            from ui.scanner_applications import applications_detail
+
+            applications_detail(service, key)
             table(
                 [moto],
                 "scanner_detail",

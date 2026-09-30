@@ -12,10 +12,10 @@ from xml.etree.ElementTree import ParseError
 from xml.parsers.expat import ExpatError
 from zipfile import BadZipFile, ZipFile
 
+from scanner_base.adapters import application_diagnostics, parse_scanner_workbook
 from scanner_base.aggregator import consolidate
 from scanner_base.excel_reader import read_excel
 from scanner_base.models import Motorcycle, ParsedBase, SystemRecord
-from scanner_base.parser import REQUIRED, header_map, parse_workbook
 from services.import_service import load_rules
 
 
@@ -58,6 +58,8 @@ def unpack(payload):
         issues=payload["issues"],
         sheets=payload["sheets"],
         rejected_rows=payload["rejected_rows"],
+        source_format=payload.get("source_format", "LEGACY"),
+        metadata=payload.get("metadata", {}),
     )
 
 
@@ -91,24 +93,15 @@ def validate_upload(content, filename, settings=None):
             if archive.testzip():
                 raise ValueError("Arquivo corrompido")
         book = read_excel(io.BytesIO(content))
-        tables = []
-        for sheet in book.sheets:
-            mapping = next(
-                (header_map(row) for _, row in sheet.rows if REQUIRED <= set(header_map(row).values())), None
-            )
-            if mapping:
-                if not {"release", "situation"} & set(mapping.values()):
-                    raise ValueError("Tabela sem colunas de situação ou lançamento")
-                tables.append(sheet.name)
-        if not tables:
-            raise ValueError("Nenhuma aba contém a estrutura obrigatória")
         rules = load_rules()
-        base = parse_workbook(book, rules)
+        base = parse_scanner_workbook(book, rules, strict_legacy=True)
+        tables = base.metadata["source_sheets"]
         consolidate(base)
     except (BadZipFile, KeyError, IndexError, OverflowError, ParseError, ExpatError) as exc:
         raise ValueError("Arquivo corrompido ou estrutura de planilha inválida") from exc
     counts = Counter(i["code"] for i in base.issues)
     report = {
+        **application_diagnostics(base),
         "total_records": len(base.records) + base.rejected_rows,
         "valid_records": len(base.records),
         "unique_vehicles": len(base.motorcycles),

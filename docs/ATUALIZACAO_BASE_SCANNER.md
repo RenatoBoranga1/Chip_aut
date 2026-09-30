@@ -112,3 +112,8 @@ não há botão que apenas troque um ponteiro deixando decisões e avaliações 
 futura reversão deverá ser uma nova publicação auditada com todos os impactos revalidados.
 
 Os pesos de prioridade e as regras de suporte não mudaram. Só WR Motos permanece integrada.
+
+
+## Base consolidada V16 (Milestone 10.1)
+
+O importador reconhece também APLICACAO GERAL, com aplicações por veículo/sistema/cabo e atributos técnicos. O legado permanece compatível. Presença e suporte continuam distintos; a publicação exige confirmação humana. Consulte [documentação da V16](NOVA_BASE_APLICACAO_V16.md). A exigência de LANC./SIT. descrita acima aplica-se ao formato legado; a V16 usa seus 13 cabeçalhos próprios.

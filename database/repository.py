@@ -103,17 +103,15 @@ class SQLiteRepository:
                 (datetime.now(timezone.utc).isoformat(), source, digest, encode(rules), encode(report), encode(diff)),
             )
             import_id = cursor.lastrowid
-            ids = {}
-            for key, payload in current.items():
-                db.execute(
-                    "INSERT OR IGNORE INTO motorcycles(normalized_key,first_import_id) VALUES (?,?)", (key, import_id)
-                )
-                motorcycle_id = db.execute("SELECT id FROM motorcycles WHERE normalized_key=?", (key,)).fetchone()[0]
-                ids[key] = motorcycle_id
-                db.execute(
-                    "INSERT INTO motorcycle_snapshots VALUES (?,?,?,?)",
-                    (import_id, motorcycle_id, payload["status"], encode(payload)),
-                )
+            db.executemany(
+                "INSERT OR IGNORE INTO motorcycles(normalized_key,first_import_id) VALUES (?,?)",
+                [(key, import_id) for key in current],
+            )
+            ids = {key: identifier for identifier, key in db.execute("SELECT id,normalized_key FROM motorcycles")}
+            db.executemany(
+                "INSERT INTO motorcycle_snapshots VALUES (?,?,?,?)",
+                [(import_id, ids[key], payload["status"], encode(payload)) for key, payload in current.items()],
+            )
             db.executemany(
                 "INSERT INTO system_records(import_id,motorcycle_id,sheet,source_row,payload_json) VALUES (?,?,?,?,?)",
                 [(import_id, ids[r.key], r.sheet, r.row, encode(asdict(r))) for r in base.records],

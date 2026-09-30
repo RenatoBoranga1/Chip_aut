@@ -25,6 +25,16 @@ class DashboardRepository(ReviewRepository):
         self.base_id, self.scanner_policy, self.motos = self.matching_snapshot()
         self.base = {m.key: m for m in self.motos}
 
+    def scanner_applications(self, key=None):
+        query = (
+            "SELECT r.payload_json FROM system_records r JOIN motorcycles m ON m.id=r.motorcycle_id WHERE r.import_id=?"
+        )
+        params = (self.base_id,)
+        if key is not None:
+            query += " AND m.normalized_key=?"
+            params += (key,)
+        return [json.loads(row[0]) for row in self.connection.execute(query + " ORDER BY r.id", params)]
+
     def partners(self):
         return [
             r[0] for r in self.connection.execute("SELECT DISTINCT partner FROM partner_collections ORDER BY partner")

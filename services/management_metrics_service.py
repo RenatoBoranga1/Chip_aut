@@ -418,7 +418,11 @@ def calculate(data, start, end, filters, thresholds):
     }
     new_base = {r["key"]: r for r in bases}
     comparison = (data["version"] or {}).get("publication", {}).get("comparison")
+    selected_applications = [r for r in data.get("applications", []) if r["key"] in new_base]
     base_stats = {
+        "Aplicações (linhas)": len(selected_applications),
+        "Aplicações sem repetição exata": sum(r["duplicate_of"] is None for r in selected_applications),
+        "Sistemas distintos": len({r["system"] for r in selected_applications}),
         "Total": len(bases),
         "Adicionadas": len(new_base.keys() - old_base.keys()),
         "Removidas": len(old_base.keys() - new_base.keys()),

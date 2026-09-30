@@ -1107,3 +1107,8 @@ A CLI antiga de importação serve para bootstrap; atualização operacional usa
 Abra **Indicadores gerenciais** na navegação. Selecione parceiro, período, versão e filtros; os oito cards executivos levam às listas correspondentes. As abas exibem revisões, demanda, etapas de desenvolvimento, tempos, cobertura histórica, prioridades e alertas. Exportação CSV inclui o recorte e as definições. A consulta usa exclusivamente leituras, sem atualizar decisões, prioridade, base ou arquivos Excel.
 
 As métricas distinguem eventos no período de situação no encerramento. Consulte [Dicionário dos indicadores](docs/DICIONARIO_INDICADORES.md) para populações, denominadores, cache e limites históricos, e [Resultados do Milestone 13](RESULTADOS_MILESTONE_13.md) para validação e desempenho.
+
+
+## Base consolidada V16 (Milestone 10.1)
+
+O importador reconhece também APLICACAO GERAL, com aplicações por veículo/sistema/cabo e atributos técnicos. O legado permanece compatível. Presença e suporte continuam distintos; a publicação exige confirmação humana. Consulte [documentação](docs/NOVA_BASE_APLICACAO_V16.md) e [resultados](RESULTADOS_MILESTONE_10_1.md).
