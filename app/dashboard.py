@@ -40,6 +40,7 @@ from ui.vehicle_images import photo_cells, photo_filter, photo_metrics, vehicle_
 
 PAGES = [
     "Visão geral",
+    "Indicadores gerenciais",
     "Fila de revisão",
     "Estoque",
     "Sem suporte",
@@ -296,6 +297,11 @@ def main():
     st.caption("Identidade, decisões humanas e cobertura do scanner — com histórico preservado.")
     if snapshot["zero_km_warning"]:
         st.warning(ZERO_KM)
+    if page == "Indicadores gerenciais":
+        from ui.management_dashboard import management_page
+
+        management_page(service)
+        return
     refresh_after_pipeline(service)
     if page == "Atualização da base do scanner":
         from ui.scanner_panel import scanner_page

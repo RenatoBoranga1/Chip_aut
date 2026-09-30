@@ -1100,3 +1100,10 @@ python -m app.scanner_base list
 Consulte [o procedimento completo](docs/ATUALIZACAO_BASE_SCANNER.md), incluindo confirmação,
 configuração, recuperação, CLI e limitações, e [os resultados](RESULTADOS_MILESTONE_10.md).
 A CLI antiga de importação serve para bootstrap; atualização operacional usa o novo fluxo.
+
+
+## Milestone 13 — Indicadores gerenciais
+
+Abra **Indicadores gerenciais** na navegação. Selecione parceiro, período, versão e filtros; os oito cards executivos levam às listas correspondentes. As abas exibem revisões, demanda, etapas de desenvolvimento, tempos, cobertura histórica, prioridades e alertas. Exportação CSV inclui o recorte e as definições. A consulta usa exclusivamente leituras, sem atualizar decisões, prioridade, base ou arquivos Excel.
+
+As métricas distinguem eventos no período de situação no encerramento. Consulte [Dicionário dos indicadores](docs/DICIONARIO_INDICADORES.md) para populações, denominadores, cache e limites históricos, e [Resultados do Milestone 13](RESULTADOS_MILESTONE_13.md) para validação e desempenho.
