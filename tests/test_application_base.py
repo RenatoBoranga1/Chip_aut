@@ -310,7 +310,7 @@ def test_multiple_thousand_applications_still_one_vehicle():
     assert report["applications"] == 1200 and report["unique_systems"] == 1200
 
 
-def test_new_format_dashboard_search_and_details(scanner, monkeypatch):
+def test_new_format_dashboard_search_and_details(scanner, monkeypatch, all_navigation):
     from pathlib import Path
 
     from streamlit.testing.v1 import AppTest

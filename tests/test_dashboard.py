@@ -256,7 +256,7 @@ def test_ui_has_no_sql_or_domain_matching():
 
 
 @pytest.fixture
-def ui(dashboard, monkeypatch):
+def ui(dashboard, monkeypatch, all_navigation):
     monkeypatch.setenv("MOTO_DB", str(dashboard.config.database))
     monkeypatch.setenv("MOTO_READ_ONLY", "0")
     return AppTest.from_file(str(Path("app/dashboard.py").resolve()), default_timeout=20).run()

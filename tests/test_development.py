@@ -388,7 +388,7 @@ def test_cli_create_list_show_assign_and_status(dev):
         assert result.returncode == 0, result.stderr
 
 
-def test_dashboard_page_and_actions_are_readonly_safe(dev, monkeypatch):
+def test_dashboard_page_and_actions_are_readonly_safe(dev, monkeypatch, all_navigation):
     from streamlit.testing.v1 import AppTest
 
     item = create(dev, "2")
@@ -501,7 +501,7 @@ def test_no_alerts_when_policy_disabled_and_sla_scan_throttled(dev):
         assert list(db.iterdump()) == before
 
 
-def test_dashboard_explicit_creation_and_stale_form(dev, monkeypatch):
+def test_dashboard_explicit_creation_and_stale_form(dev, monkeypatch, all_navigation):
     from streamlit.testing.v1 import AppTest
 
     monkeypatch.setenv("MOTO_DB", str(dev.config.database))

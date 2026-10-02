@@ -335,7 +335,7 @@ def test_partner_registry_and_filters(priority):
     assert priority.listing(filters={"photo": ["with"]})["total"] == 0
 
 
-def test_dashboard_and_cli_no_writes_on_navigation(priority, monkeypatch):
+def test_dashboard_and_cli_no_writes_on_navigation(priority, monkeypatch, all_navigation):
     priority.refresh()
     monkeypatch.setenv("MOTO_DB", str(priority.config.database))
     monkeypatch.setenv("MOTO_READ_ONLY", "1")

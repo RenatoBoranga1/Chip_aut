@@ -9,12 +9,13 @@ import streamlit as st
 from services.development_policy import PRIORITIES, REASONS, STATES, TECHNICAL, TRANSITIONS
 from services.development_service import DevelopmentService, allowed_reasons
 from services.vehicle_image_config import load_image_config
+from ui.navigation import request_navigation
 from ui.textos import ALERT_STATES, cell, value
 from ui.vehicle_images import photo_cells, vehicle_photo
 
 
 def open_item(item_id):
-    st.session_state.navigation = "Motos para desenvolvimento"
+    request_navigation("Motos para desenvolvimento")
     st.session_state.development_selection = item_id
 
 

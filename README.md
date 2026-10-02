@@ -1112,3 +1112,8 @@ As métricas distinguem eventos no período de situação no encerramento. Consu
 ## Base consolidada V16 (Milestone 10.1)
 
 O importador reconhece também APLICACAO GERAL, com aplicações por veículo/sistema/cabo e atributos técnicos. O legado permanece compatível. Presença e suporte continuam distintos; a publicação exige confirmação humana. Consulte [documentação](docs/NOVA_BASE_APLICACAO_V16.md) e [resultados](RESULTADOS_MILESTONE_10_1.md).
+
+
+## Navegação simplificada
+
+A barra lateral tem 11 itens, com **Possíveis novas motos** na terceira posição. Cinco páginas estão temporariamente ocultas no menu, preservadas para acesso interno. A configuração reversível fica em `ui/navigation.py`; consulte [a política de navegação](docs/NAVEGACAO_DASHBOARD.md).

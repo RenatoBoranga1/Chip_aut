@@ -127,7 +127,7 @@ def visible(ui):
     return "\n".join(texts)
 
 
-def test_all_pages_display_portuguese_without_main_raw_enums(dashboard, monkeypatch):
+def test_all_pages_display_portuguese_without_main_raw_enums(dashboard, monkeypatch, all_navigation):
     ui = ui_for(dashboard, monkeypatch)
     forbidden = (
         "pending",

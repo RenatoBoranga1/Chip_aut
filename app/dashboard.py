@@ -24,6 +24,7 @@ from services.vehicle_image_config import load_image_config  # noqa: E402
 from ui.alert_panel import alert_center  # noqa: E402
 from ui.development_panel import development_page, offer_creation, origin_picker  # noqa: E402
 from ui.human_decision import decision_form  # noqa: E402
+from ui.navigation import PAGES, request_navigation, sidebar_navigation  # noqa: E402, F401
 from ui.pipeline_panel import automatic_updates, refresh_after_pipeline  # noqa: E402
 from ui.textos import (  # noqa: E402
     COVERAGE_HELP,
@@ -37,25 +38,6 @@ from ui.textos import (  # noqa: E402
     value,
 )
 from ui.vehicle_images import photo_cells, photo_filter, photo_metrics, vehicle_photo  # noqa: E402
-
-PAGES = [
-    "Visão geral",
-    "Indicadores gerenciais",
-    "Fila de revisão",
-    "Estoque",
-    "Sem suporte",
-    "Suporte parcial",
-    "Possíveis novas motos",
-    "Base do scanner",
-    "Busca global",
-    "Histórico",
-    "Atualização automática",
-    "Alertas",
-    "Parceiros",
-    "Priorização operacional",
-    "Atualização da base do scanner",
-    "Motos para desenvolvimento",
-]
 
 
 def table(rows, key, columns=None, images=False, decisions=False):
@@ -243,7 +225,7 @@ def main():
             return
         if st.button("Voltar à fila de revisão"):
             st.query_params.clear()
-            st.session_state.navigation = "Fila de revisão"
+            request_navigation("Fila de revisão")
             st.session_state.related_review_id = item["id"]
             st.rerun()
         st.title("Registrar decisão humana")
@@ -284,9 +266,8 @@ def main():
             detail(service, item["id"], include_form=False)
         return
     stock_page = "Estoque " + registry.get(service.config.partner).display_name
-    pages = [stock_page if p == "Estoque" else p for p in PAGES]
     st.sidebar.caption("OPERAÇÃO · " + registry.get(service.config.partner).display_name.upper())
-    page = st.sidebar.radio("Navegação", pages, key="navigation")
+    page = sidebar_navigation(stock_page)
     st.sidebar.caption(
         f"Base {snapshot['base_id']} · {'Somente leitura' if config.read_only else 'Revisões habilitadas'}"
     )

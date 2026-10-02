@@ -5,6 +5,7 @@ import logging
 import streamlit as st
 
 from services.alert_service import AlertService, filter_alerts
+from ui.navigation import request_navigation
 from ui.textos import ALERT_ACTIONS, ALERT_SEVERITIES, ALERT_STATES, ALERT_TYPES, LABELS, cell, explanation, value
 from ui.vehicle_images import vehicle_photo
 
@@ -18,7 +19,7 @@ def alert_label(identifier):
 
 
 def navigate(page, field=None, identifier=None):
-    st.session_state.navigation = page
+    request_navigation(page)
     if field:
         st.session_state[field] = identifier
 
