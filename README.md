@@ -1,7 +1,7 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1 a 10, incluindo atualização segura da base do scanner.** Parser, normalização,
+**Entrega atual: Milestones 1 a 10.1 e 13, incluindo a base consolidada V16 e indicadores gerenciais.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
 funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
 preliminar, painel Streamlit, agendamento independente e acompanhamento de necessidades confirmadas para desenvolvimento.
@@ -1117,3 +1117,5 @@ O importador reconhece também APLICACAO GERAL, com aplicações por veículo/si
 ## Navegação simplificada
 
 A barra lateral tem 11 itens, com **Possíveis novas motos** na terceira posição. Cinco páginas estão temporariamente ocultas no menu, preservadas para acesso interno. A configuração reversível fica em `ui/navigation.py`; consulte [a política de navegação](docs/NAVEGACAO_DASHBOARD.md).
+
+A conclusão da V16 distingue conflitos de atributos e de suporte, preserva relatórios históricos e apresenta os totais novamente antes da confirmação. A consulta interna da base ativa diferencia aplicações de sistemas sem alterar o menu simplificado. Veja [os resultados da conclusão](RESULTADOS_MILESTONE_10_1.md).

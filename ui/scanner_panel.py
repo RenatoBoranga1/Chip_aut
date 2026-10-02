@@ -5,6 +5,7 @@ import json
 import streamlit as st
 
 from services.scanner_service import ScannerService
+from ui.navigation import request_navigation
 from ui.scanner_applications import FIELDS
 from ui.textos import value
 
@@ -79,6 +80,8 @@ def scanner_page(dashboard):
     st.info(f"Base operacional: importação {listing['active_import'] or 'não disponível'}")
     if current:
         st.caption("Identificador SHA-256 da base: " + current.get("sha256", current.get("source_sha256", "")))
+    if listing["active_import"]:
+        st.button("Consultar veículos da base ativa", on_click=request_navigation, args=("Base do scanner",))
     if not service.settings["enabled"]:
         st.warning("Atualização da base desabilitada pela configuração")
     disabled = dashboard.config.read_only or not service.settings["enabled"]
@@ -152,7 +155,12 @@ def scanner_page(dashboard):
     st.write("Responsável: " + item["imported_by"])
     st.write("Observações: " + (item["notes"] or "Não informadas"))
     report = item["report"]
+    report = {"support_conflicts": report.get("conflicts", 0), **report}
     comparison = report.get("comparison", {})
+    if item.get("diagnostics_recomputed"):
+        st.caption(
+            "Contadores de conflitos conferidos a partir dos avisos preservados; relatório histórico original mantido."
+        )
     st.info("Formato detectado: " + report.get("format_label", "Formato legado — RESUMO MDL"))
     display_table(
         [
@@ -214,6 +222,8 @@ def scanner_page(dashboard):
                 ("invalid_records", "Registros inválidos"),
                 ("duplicates", "Duplicidades"),
                 ("conflicts", "Conflitos"),
+                ("application_conflicts", "Conflitos de atributos (chaves de aplicação)"),
+                ("support_conflicts", "Conflitos de suporte"),
                 ("invalid_dates", "Datas inválidas"),
             ]
         ]
@@ -345,6 +355,22 @@ def scanner_page(dashboard):
         )
     if item["status"] == "VALIDATED":
         st.subheader("Confirmação da publicação")
+        display_table(
+            [
+                {
+                    "Arquivo": item["original_filename"],
+                    "Veículos": report.get("unique_vehicles", item["unique_vehicles"]),
+                    "Aplicações (linhas)": report.get("applications", item["valid_records"]),
+                    "Sistemas distintos": report.get("unique_systems", "Não apurado"),
+                    "Duplicidades exatas": report.get("duplicates", 0),
+                    "Conflitos": report.get("conflicts", 0),
+                    "Veículos adicionados": comparison.get("added", 0),
+                    "Veículos removidos": comparison.get("removed", 0),
+                    "Veículos alterados": comparison.get("changed", 0),
+                    "Decisões a revalidar": report.get("review_affected", 0),
+                }
+            ]
+        )
         st.write(
             f"Publicar versão {selected}? A comparação usa a importação {item['parent_import_id']}. {report.get('review_affected', 0)} decisões podem exigir revisão; {report.get('development_affected', 0)} itens de desenvolvimento precisam de conferência."
         )

@@ -311,8 +311,25 @@ def parse_scanner_workbook(book, rules, strict_legacy=False):
     return detect_adapter(book, strict_legacy).parse(book, rules)
 
 
+def conflict_diagnostics(issues):
+    """Count conflicting application keys, not every additional variant row."""
+    counts = Counter(issue["code"] for issue in issues)
+    keys = {
+        (issue.get("sheet"), issue["original_record_index"])
+        for issue in issues
+        if issue["code"] == "APPLICATION_VARIANT"
+    }
+    return {
+        "application_conflicts": len(keys),
+        "application_variant_rows": counts["APPLICATION_VARIANT"],
+        "support_conflicts": counts["CONFLICTING_SYSTEM"],
+        "conflicts": len(keys) + counts["CONFLICTING_SYSTEM"],
+    }
+
+
 def application_diagnostics(base):
     return {
+        **conflict_diagnostics(base.issues),
         "format": base.source_format,
         "format_label": FORMAT_LABELS[base.source_format],
         "applications": len(base.records),

@@ -25,3 +25,14 @@ A busca da base inclui sistema e cabo, retornando veículos sem multiplicá-los.
 ## Limitações
 
 Totais históricos de VERSOES não são a autoridade do consolidado. Fórmulas não são executadas. Textos técnicos desconhecidos exigem interpretação humana; não inferimos suporte. O painel não oferece rollback operacional. As publicações de validação usam bancos temporários; a planilha original não é alterada nem incluída no Git.
+
+
+## Conclusão e conferência dos conflitos
+
+O resumo separa `application_conflicts` (chaves veículo/sistema/cabo com variantes), `application_variant_rows` (linhas adicionais divergentes) e `support_conflicts` (conflitos de status). `conflicts` soma as duas classes de conflito; várias variantes da mesma chave não multiplicam a quantidade de chaves conflitantes. Avisos e registros originais continuam preservados. Conflito é informação para conferência humana, não autorização para inferir suporte ou descartar variantes.
+
+Relatórios V16 antigos que não tinham esses contadores são apresentados com uma projeção somente leitura dos avisos salvos no staging ou em import_issues. O JSON histórico e seus eventos não são reescritos; a interface informa a conferência. Não há releitura da planilha durante a navegação.
+
+Antes da confirmação, o painel repete arquivo, veículos, aplicações, sistemas, duplicidades, conflitos, diferenças e decisões afetadas. O botão Consultar veículos da base ativa abre a página interna existente sem reativá-la no menu lateral. A listagem diferencia Aplicações (linhas) de Sistemas; o detalhe mantém cabo, versão de introdução, tipo de teste e todos os atributos originais.
+
+Na conferência de 02/10/2026, o banco operacional já continha a publicação V16 de 30/09/2026, importação 3. Nenhuma nova publicação operacional foi feita nesta conclusão. A mesma planilha não deve ser republicada: o SHA já registrado abre a versão existente. Uma futura troca operacional depende de autorização e confirmação explícitas.

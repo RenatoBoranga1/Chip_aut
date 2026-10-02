@@ -107,7 +107,6 @@ def validate_upload(content, filename, settings=None):
         "unique_vehicles": len(base.motorcycles),
         "invalid_records": base.rejected_rows,
         "duplicates": counts["DUPLICATE_ROW"],
-        "conflicts": counts["CONFLICTING_SYSTEM"],
         "invalid_dates": counts["INVALID_DATE"],
         "issues": dict(counts),
         "sheets": tables,

@@ -198,7 +198,7 @@ class DashboardService:
 
     def scanner(self, text=""):
         with DashboardRepository(self.config.database) as repo:
-            rows = [{**asdict(m), "scanner_key": m.key} for m in repo.motos]
+            rows = [{**asdict(m), "scanner_key": m.key, "application_count": m.record_count} for m in repo.motos]
             applications = repo.scanner_applications() if text.strip() else []
         technical = {}
         for record in applications:

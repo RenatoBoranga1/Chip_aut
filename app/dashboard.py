@@ -506,7 +506,18 @@ def main():
         text = st.text_input("Buscar na base", placeholder="Fabricante, modelo, ano, sistema ou cabo")
         rows = service.scanner(text)
         table(
-            rows, "scanner", ["manufacturer", "model", "year", "scanner_key", "status", "system_count", "latest_date"]
+            rows,
+            "scanner",
+            [
+                "manufacturer",
+                "model",
+                "year",
+                "scanner_key",
+                "status",
+                "application_count",
+                "system_count",
+                "latest_date",
+            ],
         )
         key = st.selectbox(
             "Inspecionar identidade",

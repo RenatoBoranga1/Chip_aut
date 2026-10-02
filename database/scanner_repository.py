@@ -7,6 +7,7 @@ from pathlib import PureWindowsPath
 from database.development_repository import read_connection
 from database.repository import SQLiteRepository, encode
 from matching.review_policy import target_identity
+from scanner_base.adapters import conflict_diagnostics
 from scanner_base.models import Motorcycle
 from services.scheduler_config import utcnow
 
@@ -184,6 +185,30 @@ def detail(path, version, page=0, kind=None):
             value.pop(k, None)
         value["original_filename"] = PureWindowsPath(value["original_filename"]).name
         value["report"] = json.loads(value.pop("report_json"))
+        # Older V16 reports counted support conflicts only. Project diagnostics from
+        # their saved issues without reparsing Excel or mutating historical reports.
+        report = value["report"]
+        if report.get("format") == "APPLICATION_GENERAL" and "application_conflicts" not in report:
+            issues = [
+                json.loads(row[0])
+                for row in db.execute(
+                    "SELECT j.value FROM scanner_versions v,json_each(v.payload_json,'$.issues') j "
+                    "WHERE v.id=? AND json_extract(j.value,'$.code') IN ('APPLICATION_VARIANT','CONFLICTING_SYSTEM')",
+                    (version,),
+                )
+            ]
+            if not issues and value["import_id"] is not None:
+                issues = [
+                    json.loads(row[0])
+                    for row in db.execute(
+                        "SELECT payload_json FROM import_issues WHERE import_id=? "
+                        "AND code IN ('APPLICATION_VARIANT','CONFLICTING_SYSTEM')",
+                        (value["import_id"],),
+                    )
+                ]
+            report.update(conflict_diagnostics(issues))
+            value["diagnostics_recomputed"] = True
+
         where = "version_id=?" + (" AND kind=?" if kind else "")
         args = (version, kind) if kind else (version,)
         value["differences"] = [

@@ -71,6 +71,7 @@ LABELS = {
     "evidence": "Evidência",
     "status": "Situação",
     "system_count": "Sistemas",
+    "application_count": "Aplicações (linhas)",
     "latest_date": "Data relevante",
     "confidence": "Pontuação de similaridade",
     "scanner_status": "Situação da cobertura",
