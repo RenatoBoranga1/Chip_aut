@@ -23,6 +23,7 @@ class PartnerLimits:
     delay_seconds: float = 2
     concurrency: int = 1
     max_pages: int = 100
+    requests_per_minute: int = 30
 
     def __post_init__(self):
         for name, low, high, integer in (
@@ -31,6 +32,7 @@ class PartnerLimits:
             ("delay_seconds", 2, 300, False),
             ("concurrency", 1, 8, True),
             ("max_pages", 1, 1000, True),
+            ("requests_per_minute", 1, 30, True),
         ):
             value = getattr(self, name)
             if (
@@ -44,7 +46,7 @@ class PartnerLimits:
         return replace(
             config,
             max_retries=self.retries,
-            delay_seconds=self.delay_seconds,
+            delay_seconds=max(self.delay_seconds, 60 / self.requests_per_minute),
             request_timeout_seconds=self.timeout_seconds,
             max_pages=self.max_pages,
         )
@@ -58,12 +60,16 @@ class PartnerSettings:
     enabled: bool = True
     limits: PartnerLimits = field(default_factory=PartnerLimits)
     image_hosts: tuple[str, ...] = ()
+    detail_lookup: bool = True
+    image_fetch: bool = True
 
     def __post_init__(self):
         validate_key(self.partner_key)
         validate_key(self.collector)
         if (
             not isinstance(self.enabled, bool)
+            or not isinstance(self.detail_lookup, bool)
+            or not isinstance(self.image_fetch, bool)
             or not isinstance(self.display_name, str)
             or not self.display_name.strip()
         ):

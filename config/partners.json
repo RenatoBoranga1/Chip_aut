@@ -4,8 +4,20 @@
       "display_name": "WR Motos",
       "collector": "wr_motos",
       "enabled": true,
-      "limits": {"timeout_seconds": 30, "retries": 2, "delay_seconds": 2, "concurrency": 1, "max_pages": 100},
-      "image_hosts": ["www.wrmotos.com.br", "media.integradordeanuncios.com.br"]
+      "limits": {
+        "timeout_seconds": 30,
+        "retries": 2,
+        "delay_seconds": 2,
+        "concurrency": 1,
+        "max_pages": 100,
+        "requests_per_minute": 30
+      },
+      "image_hosts": [
+        "www.wrmotos.com.br",
+        "media.integradordeanuncios.com.br"
+      ],
+      "detail_lookup": true,
+      "image_fetch": true
     }
   }
 }

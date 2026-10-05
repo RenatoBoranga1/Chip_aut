@@ -20,6 +20,9 @@ LOGGER = logging.getLogger(__name__)
 class WRMotosCollector(PartnerAdapter):
     partner_key = "wr_motos"
     display_name = "WR Motos"
+    supports_detail_lookup = True
+    detail_lookup = True
+    image_fetch = True
     supports_images = True
     supports_price = True
     supports_mileage = True
@@ -43,6 +46,7 @@ class WRMotosCollector(PartnerAdapter):
             cache_ttl=0,
         )
         adapter.display_name, adapter.enabled = settings.display_name, settings.enabled
+        adapter.detail_lookup, adapter.image_fetch = settings.detail_lookup, settings.image_fetch
         return adapter
 
     def collect_motorcycles(self):
@@ -133,7 +137,7 @@ class WRMotosCollector(PartnerAdapter):
             result.errors.append({"code": type(exc).__name__, "detail": str(exc)})
         result.advertisements = list(by_id.values())
         images = {"detail_attempts": 0, "detail_failures": 0, "detail_skipped": 0, "detail_placeholders_rejected": 0}
-        if result.complete and hasattr(self.source, "fill_missing_images"):
+        if result.complete and self.detail_lookup and self.image_fetch and hasattr(self.source, "fill_missing_images"):
             try:
                 images.update(self.source.fill_missing_images(result.advertisements, load_image_config()))
             except Exception:

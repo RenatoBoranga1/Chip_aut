@@ -15,6 +15,7 @@ class PartnerAdapter(PartnerCollector):
     partner_key = ""
     display_name = ""
     enabled = True
+    supports_detail_lookup = False
     supports_images = False
     supports_price = False
     supports_mileage = False
@@ -33,4 +34,5 @@ class PartnerAdapter(PartnerCollector):
     def for_pipeline(cls, settings, config, folder):
         adapter = cls()
         adapter.display_name, adapter.enabled = settings.display_name, settings.enabled
+        adapter.detail_lookup, adapter.image_fetch = settings.detail_lookup, settings.image_fetch
         return adapter

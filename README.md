@@ -1119,3 +1119,16 @@ O importador reconhece também APLICACAO GERAL, com aplicações por veículo/si
 A barra lateral tem 11 itens, com **Possíveis novas motos** na terceira posição. Cinco páginas estão temporariamente ocultas no menu, preservadas para acesso interno. A configuração reversível fica em `ui/navigation.py`; consulte [a política de navegação](docs/NAVEGACAO_DASHBOARD.md).
 
 A conclusão da V16 distingue conflitos de atributos e de suporte, preserva relatórios históricos e apresenta os totais novamente antes da confirmação. A consulta interna da base ativa diferencia aplicações de sistemas sem alterar o menu simplificado. Veja [os resultados da conclusão](RESULTADOS_MILESTONE_10_1.md).
+
+
+## Milestone 8.1 — avaliação e acompanhamento de parceiros
+
+A WR Motos continua sendo o único parceiro integrado. Moto Marques (HTTP 403), Thomas Motos (estoque misto sem tipo verificável) e Motonil (categoria com kart/serviço e dados insuficientes) foram avaliados e aparecem como **Não integrado**, com os motivos. Nenhum collector frágil foi habilitado.
+
+- `python -m app.scheduler run-all --json`: executa os parceiros habilitados com resultados e locks independentes.
+- Página Parceiros e CLI mostram integração, última coleta, ativos, novos, reaparecidos, desaparecidos, duração e falhas.
+- Possíveis novas motos permite consultar ocorrências consolidadas; revisão mostra origens sem propagar decisões.
+- Indicadores gerenciais permite comparar parceiros distinguindo anúncios de identidades.
+- Navegação, base V16, revisão, desenvolvimento e pesos da priorização preservados.
+
+Detalhes: [parceiros e configuração](docs/PARCEIROS_INTEGRADOS.md), [avaliação dos sites](docs/AVALIACAO_NOVOS_PARCEIROS.md) e [resultados](RESULTADOS_MILESTONE_8_1.md).

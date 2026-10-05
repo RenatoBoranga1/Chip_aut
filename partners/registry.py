@@ -39,6 +39,7 @@ class PartnerRegistry:
         entry = self.get(key, require_enabled=True)
         adapter = self._factories[entry.collector](**kwargs)
         adapter.display_name, adapter.enabled = entry.display_name, entry.enabled
+        adapter.detail_lookup, adapter.image_fetch = entry.detail_lookup, entry.image_fetch
         return adapter
 
     def for_pipeline(self, key, config, folder):

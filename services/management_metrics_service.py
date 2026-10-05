@@ -198,6 +198,8 @@ def calculate(data, start, end, filters, thresholds):
             identity_key=signature(ad) if complete_identity(identity(ad)) else f"incomplete:{external_id}",
             complete_identity=complete_identity(identity(ad)),
             automatic_type=automatic["match_type"],
+            effective_type=effective["match_type"],
+            parse_warnings=ad.get("parse_warnings", []),
             automatic_current=(review["automatic_import_id"] == data["base_id"]) if review else bool(same_identity),
             automatic_resolved=not automatic.get("requires_review", True),
             coverage=effective.get("scanner_status") or "SEM_STATUS",
@@ -623,3 +625,42 @@ def csv_export(report):
                 ]
             )
     return ("\ufeff" + output.getvalue()).encode("utf-8")
+
+
+def reports_by_partner(path, start, end, *, filters=None, version=None, registry=None, clock=None):
+    """Same temporal cut and definitions for every configured origin, without summing identities."""
+    from services.partner_identity_service import group_occurrences
+
+    registry = registry or PartnerRegistry()
+    now = (clock or (lambda: datetime.now(timezone.utc)))()
+    rows = []
+    all_stock = []
+    for entry in registry.list():
+        report = ManagementMetricsService(path, entry.partner_key, clock=lambda: now).report(
+            start, end, filters=filters, version=version
+        )
+        stock = report["stock"]
+        all_stock.extend(stock)
+        rows.append(
+            {
+                "Parceiro": entry.display_name,
+                "Anúncios ativos": len(stock),
+                "Identidades estritas ou casos isolados": len(group_occurrences(stock)),
+                **{
+                    name: report["metrics"][name]
+                    for name in (
+                        "Novos anúncios",
+                        "Possíveis novas identidades",
+                        "Revisões pendentes",
+                        "Ausências confirmadas acumuladas",
+                    )
+                },
+                "Matching resolvido": sum(r["automatic_resolved"] and r["automatic_current"] for r in stock),
+            }
+        )
+    return {
+        "partners": rows,
+        "occurrences": len(all_stock),
+        "identity_groups": len(group_occurrences(all_stock)),
+        "cutoff": now.isoformat(),
+    }

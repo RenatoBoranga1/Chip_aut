@@ -65,6 +65,7 @@ def flat(ad, automatic, effective, review=None, base=None):
         "manufacturer": ad.get("manufacturer"),
         "model": ad.get("model"),
         "version": ad.get("version"),
+        "parse_warnings": ad.get("parse_warnings", []),
         "year": ad.get("year"),
         "price": ad.get("price"),
         "mileage": ad.get("mileage"),

@@ -117,6 +117,20 @@ def detail(service, item_id, include_form=True):
     item = service.detail(item_id)
     ad, auto, effective = item["advertisement"], item["automatic"], item["effective"]
     st.subheader(f"Revisão #{item_id} · {ad['manufacturer']} {ad['model']}")
+    from services.partner_identity_service import stock_origins
+
+    st.caption("Parceiro de origem: " + str(cell("partner", ad["partner"])))
+    with st.expander("Ocorrências da mesma identidade nos parceiros"):
+        origins = stock_origins(
+            service.config,
+            {**ad, "effective_type": effective["match_type"], "human_status": item["presentation"]["human_status"]},
+        )
+        st.caption("Identidade estrita; decisões e situação de estoque continuam específicas de cada origem.")
+        table(
+            origins,
+            "review_origins",
+            ["partner", "external_id", "model", "year", "partner_status", "human_status", "source_url"],
+        )
     offer_creation(service, "review", item_id, f"review_{item_id}")
     vehicle_photo(
         ad,
@@ -303,11 +317,18 @@ def main():
                     "Chave": r["partner"],
                     "Habilitado": "Sim" if r["enabled"] else "Não",
                     "Última coleta": r["last_collection"] or "Sem coleta",
-                    "Situação": value(r["status"]) if r["status"] else "Sem execução",
+                    "Integração": r["integration_status"],
+                    "Última execução": value(r["status"]) if r["status"] else "Sem execução",
+                    "Motivo": r["reason"],
+                    "Novos": r["new"],
+                    "Reaparecidos": r["reappeared"],
+                    "Desaparecidos": r["disappeared"],
+                    "Duração (s)": r["duration_seconds"],
+                    "Coleta parcial": "Sim" if r["partial"] else "Não",
                     "Anúncios ativos": r["active_ads"],
                     "Erros recentes": r["recent_errors"],
                 }
-                for r in partner_status(service.config.database, registry)
+                for r in partner_status(service.config.database, registry, include_candidates=True)
             ]
         )
         return
@@ -479,6 +500,35 @@ def main():
         st.info(
             "Novo anúncio no parceiro não significa nova moto para a base. Não encontrado automaticamente exige confirmação humana; ausência confirmada não significa sem suporte."
         )
+        from services.partner_identity_service import cross_partner_opportunities
+
+        if st.checkbox("Consolidar ocorrências de todos os parceiros", key="cross_partner_opportunities"):
+            groups = cross_partner_opportunities(service.config, registry)
+            st.caption(
+                "Contagem de identidades estritas, não de motos físicas. Casos ambíguos permanecem separados. Decisões são feitas na origem selecionada."
+            )
+            st.dataframe(
+                [
+                    {
+                        "Fabricante": g["manufacturer"],
+                        "Modelo": g["model"],
+                        "Ano": g["year"],
+                        "Parceiros": g["partner_count"],
+                        "Anúncios": g["occurrence_count"],
+                    }
+                    for g in groups
+                ],
+                hide_index=True,
+            )
+            for n, group in enumerate(groups):
+                with st.expander(
+                    f"{group['manufacturer']} {group['model']} {group['year']} · {group['partner_count']} parceiro(s)"
+                ):
+                    table(
+                        group["origins"],
+                        f"cross_origins_{n}",
+                        ["partner", "external_id", "partner_status", "base_status", "human_status", "source_url"],
+                    )
         opportunities = service.opportunities()
         image_indicators = st.container()
         for title, rows in opportunities.items():
@@ -493,6 +543,7 @@ def main():
                     "model",
                     "year",
                     "first_seen",
+                    "partner",
                     "partner_status",
                     "base_status",
                     "human_status",

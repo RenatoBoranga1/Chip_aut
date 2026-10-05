@@ -145,6 +145,14 @@ def management_page(service):
         st.caption(
             "Priorização operacional indisponível neste banco: nenhum cálculo ou migração é executado pela consulta."
         )
+    if st.checkbox("Comparar indicadores por parceiro", key="management_by_partner"):
+        from services.management_metrics_service import reports_by_partner
+
+        comparison = reports_by_partner(service.config.database, start, end, filters=filters, version=version)
+        st.dataframe(comparison["partners"], hide_index=True)
+        st.caption(
+            f"{comparison['occurrences']} anúncios · {comparison['identity_groups']} identidades estritas ou casos isolados. Identidades não são somadas entre parceiros; ambiguidades permanecem separadas."
+        )
     executive = [
         "Novos anúncios",
         "Possíveis novas identidades",

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from database.pipeline_repository import read_pipeline
 from partners.registry import PartnerRegistry
+from services.multi_partner_service import run_all
 from services.pipeline_service import LOGGER, run_pipeline
 from services.scheduler_config import DEFAULT_CONFIG, load_config
 from services.scheduler_service import scheduler_status, serve
@@ -15,7 +16,7 @@ from ui.textos import value
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Agendamento e atualização operacional")
-    parser.add_argument("command", choices=["start", "run-now", "status", "history", "validate-config"])
+    parser.add_argument("command", choices=["start", "run-now", "run-all", "status", "history", "validate-config"])
     parser.add_argument("--db", type=Path, default=Path(os.environ.get("MOTO_DB", "data/coverage.sqlite3")))
     parser.add_argument(
         "--config", type=Path, default=Path(os.environ.get("MOTO_SCHEDULER_CONFIG", str(DEFAULT_CONFIG)))
@@ -25,7 +26,9 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true", help="Saída técnica para integração")
     args = parser.parse_args(argv)
     try:
-        config = PartnerRegistry().get(args.partner).limits.apply(load_config(args.config))
+        config = load_config(args.config)
+        if args.command != "run-all":
+            config = PartnerRegistry().get(args.partner).limits.apply(config)
         if args.command == "validate-config":
             output = {
                 "Configuração": "Válida",
@@ -35,6 +38,8 @@ def main(argv=None):
         elif args.command == "start":
             serve(args.db, args.config, partner_key=args.partner)
             output = {"Agendamento": "Encerrado"}
+        elif args.command == "run-all":
+            output = run_all(args.db, config, request_key=args.request_key)
         elif args.command == "run-now":
             output = run_pipeline(args.db, config, request_key=args.request_key, partner_key=args.partner)
         elif args.command == "status":
@@ -43,6 +48,9 @@ def main(argv=None):
             output = read_pipeline(args.db, partner=args.partner)
         if args.json or args.command in {"validate-config", "start"}:
             print(json.dumps(output, ensure_ascii=False, indent=2))
+        elif args.command == "run-all":
+            for partner, result in output.items():
+                print(f"{partner}: {value(result['status'])}")
         elif args.command == "run-now":
             print(f"Execução {output['id']}: {value(output['status'])}")
             if output.get("error_summary"):
@@ -56,6 +64,8 @@ def main(argv=None):
                     f"Execução {run['id']} · {run['started_at']} · {value(run['trigger_type'])} · {value(run['status'])}"
                 )
         if args.command == "run-now" and output["status"] in {"FAILED", "CANCELLED"}:
+            return 1
+        if args.command == "run-all" and any(r["status"] in {"FAILED", "CANCELLED"} for r in output.values()):
             return 1
         return 0
     except KeyboardInterrupt:

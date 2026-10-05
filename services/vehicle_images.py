@@ -48,7 +48,10 @@ def raster_format(content):
 def safe_download_url(url, partner="wr_motos"):
     from partners.registry import PartnerRegistry
 
-    allowed_hosts = PartnerRegistry().get(partner).image_hosts
+    settings = PartnerRegistry().get(partner)
+    if not settings.image_fetch:
+        raise ValueError("Busca de imagens desabilitada para o parceiro")
+    allowed_hosts = settings.image_hosts
     if image_url(url, "") != url:
         raise ValueError("URL de foto inválida")
     host = urlsplit(url).hostname
