@@ -1,0 +1,12 @@
+{
+  "enabled": false,
+  "provider": "environment",
+  "model": null,
+  "read_only": true,
+  "max_context_records": 50,
+  "max_history_messages": 10,
+  "max_response_rows": 20,
+  "timeout_seconds": 30,
+  "retries": 1,
+  "audit_enabled": true
+}

@@ -1,7 +1,7 @@
 # Moto Coverage Monitor
 
 Automação para identificar veículos de parceiros sem cobertura completa no scanner.
-**Entrega atual: Milestones 1 a 10.1 e 13, incluindo a base consolidada V16 e indicadores gerenciais.** Parser, normalização,
+**Entrega atual: Milestones 1 a 10.1, 13 e implementação do 14, incluindo V16, indicadores e assistente de consulta.** Parser, normalização,
 consolidação, SQLite versionado, matching exato/aproximado e revisão manual via CLI
 funcionam com a base real. A branch inclui coleta WR Motos, histórico e cobertura
 preliminar, painel Streamlit, agendamento independente e acompanhamento de necessidades confirmadas para desenvolvimento.
@@ -1116,7 +1116,7 @@ O importador reconhece também APLICACAO GERAL, com aplicações por veículo/si
 
 ## Navegação simplificada
 
-A barra lateral tem 11 itens, com **Possíveis novas motos** na terceira posição. Cinco páginas estão temporariamente ocultas no menu, preservadas para acesso interno. A configuração reversível fica em `ui/navigation.py`; consulte [a política de navegação](docs/NAVEGACAO_DASHBOARD.md).
+A barra lateral tem 12 itens, com **Assistente de IA** na terceira posição e **Possíveis novas motos** na quarta. Cinco páginas estão temporariamente ocultas no menu, preservadas para acesso interno. A configuração reversível fica em `ui/navigation.py`; consulte [a política de navegação](docs/NAVEGACAO_DASHBOARD.md).
 
 A conclusão da V16 distingue conflitos de atributos e de suporte, preserva relatórios históricos e apresenta os totais novamente antes da confirmação. A consulta interna da base ativa diferencia aplicações de sistemas sem alterar o menu simplificado. Veja [os resultados da conclusão](RESULTADOS_MILESTONE_10_1.md).
 
@@ -1141,3 +1141,12 @@ Thomas e Motonil continuam sem classificação segura: categoria genérica mistu
 `python -m app.partners diagnose <chave>` consulta a avaliação salva; `--live` permite diagnóstico HTTP limitado de Thomas/Motonil, sem publicação ou persistência. Parceiros, Alertas e a opção de qualidade em Indicadores mostram evidências e métricas separadas do estoque. Desconhecidos nunca viram motos automaticamente.
 
 Consulte [a auditoria manual](docs/VALIDACAO_MANUAL_PARCEIROS_8_2.md), [operação e limites](docs/PARCEIROS_INTEGRADOS.md#diagnóstico-e-qualidade--m82) e [resultados M8.2](RESULTADOS_MILESTONE_8_2.md).
+
+
+## Milestone 14 — Assistente de IA operacional
+
+A página **Assistente de IA** consulta scanner, aplicações/cabos, revisão, parceiros, desenvolvimento, prioridades, indicadores, alertas e versões. Atua somente em leitura e exibe referências de origem. O modelo organiza evidências; números e decisões vêm dos serviços existentes. Sem provider, mostra “Assistente de IA não configurado” e as outras páginas continuam funcionando.
+
+Para desenvolvimento offline, defina `AI_ASSISTANT_ENABLED=true` e `AI_PROVIDER=fake` no ambiente do Streamlit. Para API, configure também provider/modelo/chave conforme `.env.example`, sem versionar segredos. Não há habilitação automática, chamada paga nos testes ou ferramenta de escrita.
+
+Veja [arquitetura, configuração e limites](docs/ASSISTENTE_IA.md) e [resultados e pendências de validação](RESULTADOS_MILESTONE_14.md).

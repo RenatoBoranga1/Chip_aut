@@ -13,6 +13,7 @@ from ui import navigation
 VISIBLE = [
     "Visão geral",
     "Indicadores gerenciais",
+    "Assistente de IA",
     "Possíveis novas motos",
     "Fila de revisão",
     "Sem suporte",
@@ -48,7 +49,8 @@ def test_exact_visible_order_labels_and_third_item(app):
     app.run()
     assert not app.exception and not app.error
     assert app.radio(key="navigation").options == VISIBLE
-    assert app.radio(key="navigation").options[2] == "Possíveis novas motos"
+    assert app.radio(key="navigation").options[2] == "Assistente de IA"
+    assert app.radio(key="navigation").options[3] == "Possíveis novas motos"
     assert not set(HIDDEN) & set(app.radio(key="navigation").options)
 
 

@@ -6,15 +6,16 @@ A configuração central é `NAVIGATION_ITEMS`, em `ui/navigation.py`. Cada item
 
 1. Visão geral
 2. Indicadores gerenciais
-3. Possíveis novas motos
-4. Fila de revisão
-5. Sem suporte
-6. Suporte parcial
-7. Histórico
-8. Atualização automática
-9. Alertas
-10. Parceiros
-11. Atualização da base do scanner
+3. Assistente de IA
+4. Possíveis novas motos
+5. Fila de revisão
+6. Sem suporte
+7. Suporte parcial
+8. Histórico
+9. Atualização automática
+10. Alertas
+11. Parceiros
+12. Atualização da base do scanner
 
 Estoque, Base do scanner, Busca global, Priorização operacional e Motos para desenvolvimento estão ocultos apenas no menu. Todos os handlers e componentes dessas páginas permanecem no dashboard.
 
@@ -29,3 +30,6 @@ Os testes antigos que selecionam páginas ocultas continuam executando todas as 
 A validação Edge/Playwright percorreu as 11 páginas visíveis, conferiu a ordem exata e não encontrou erro JavaScript ou alteração no banco temporário. Capturas em reports/navigation são evidências locais ignoradas pelo Git. Cores e layout existentes foram preservados.
 
 Validação final em 02/10/2026: **940 testes aprovados** (922 existentes e 18 novos), em 275,86 s. Ruff, verificação de formatação e `git diff --check` aprovados.
+
+
+Milestone 14: Assistente de IA inserido em terceiro; os 18 testes de navegação foram preservados, atualizando apenas a ordem esperada. As cinco páginas ocultas e os links internos permanecem funcionais. A validação de 02/10 acima é histórica; consulte RESULTADOS_MILESTONE_14.md para o estado atual.

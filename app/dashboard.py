@@ -297,6 +297,11 @@ def main():
 
         management_page(service)
         return
+    if page == "Assistente de IA":
+        from ui.ai_assistant_panel import assistant_page
+
+        assistant_page(service)
+        return
     refresh_after_pipeline(service)
     if page == "Atualização da base do scanner":
         from ui.scanner_panel import scanner_page
