@@ -5,7 +5,7 @@ Estado verificado em 05/10/2026. Apenas collectors reais entram no PartnerRegist
 | Parceiro | URL | Status | Método | Campos disponíveis | Limitações |
 |---|---|---|---|---|---|
 | WR Motos | https://www.wrmotos.com.br/ | Ativo | HTTP + HTML XHR público, adapter existente | ID, link, marca, modelo, versão quando fornecida, ano, preço, km, imagem | Conflito entre filtros 0 km permanece desconhecido; ausência de anúncio não comprova venda |
-| Moto Marques | https://motomarquesmultimarcas.com.br/ | Não integrado | Nenhum collector | Não verificados | HTTP 403 |
+| Moto Marques | https://motomarquesmultimarcas.com.br/ | Não integrado | Nenhum collector | Cards visíveis no browser; não auditados para integração | HTTP 403; robots bloqueia automação |
 | Thomas Motos | https://thomasmotos.com.br/Veiculos | Não integrado | Amostragem HTML pública | ID, título, versão, ano, preço, km, imagem | Estoque misto, sem tipo verificável |
 | Motonil | https://www.motonil.com.br/MOTOS | Não integrado | Amostragem HTML pública | ID, título, preço, imagem; marca no detalhe examinado; ano/km em texto | Categoria contém kart e serviço, estrutura insuficiente |
 
@@ -40,3 +40,20 @@ O detalhe da revisão mostra parceiro e ocorrências compatíveis. As decisões 
 Indicadores gerenciais oferece comparação por parceiro sob os mesmos filtros/período/base. Diferencia quantidade de anúncios de grupos de identidade; ambiguidades são contadas como casos isolados. Não soma identidades entre parceiros. Candidatos não integrados não entram nos indicadores de estoque.
 
 Na página Parceiros, novos significa primeira observação; reaparecidos significa previamente observado mas ausente no último censo completo. Coleta parcial não calcula desaparecimentos. Histórico mantém seus rótulos/semântica preexistentes de reencontro; a nova coluna Reaparecidos tem a definição acima. Nenhuma migration nova; última existente: 014_scanner_versions.sql.
+
+## Diagnóstico e qualidade — M8.2
+
+```console
+python -m app.partners diagnose thomas_motos
+python -m app.partners diagnose motonil
+python -m app.partners diagnose moto_marques
+python -m app.partners diagnose thomas_motos --live
+```
+
+Sem `--live`, retorna a avaliação manual datada de 05/10/2026, sem rede. Com `--live`, Thomas/Motonil verificam robots e uma única página de catálogo: intervalo mínimo de 2 s, timeout de 10 s por acesso, corpo limitado a 3 MB, sem redirects, retry, paginação ou detalhes. Intervalo exigido por robots superior a 30 s requer diagnóstico manual. Moto Marques não recebe nova requisição devido ao Disallow já observado. Não há persistência de anúncios, eventos ou atualização automática da avaliação salva. Saída 0 significa diagnóstico produzido, não parceiro aprovado; consulte `validation_result`, `publishable` e `warning_codes`.
+
+Nenhuma regra de tipo foi aprovada. `UNKNOWN` nunca é publicado. O diagnóstico preserva ID/link e explica a categoria mista; categorias, marcas ou títulos não classificam motos automaticamente. Cards ausentes, IDs inválidos/duplicados ou total inconsistente produzem aviso de estrutura/parcial, sem interpretar estoque vazio. Falhas de classificação no diagnóstico contam cards inválidos; desconhecido por ausência de regra é métrica separada.
+
+Parceiros mostra método, última validação manual e categoria segura, além da tabela de qualidade. Indicadores gerenciais oferece **Ver qualidade de classificação dos parceiros**. A data da coleta WR não é apresentada como auditoria manual. Métricas não instrumentadas no collector WR ficam não avaliadas; motos publicadas correspondem aos anúncios ativos existentes.
+
+Os avisos salvos de acesso/classificação aparecem em Parceiros e Alertas, uma vez por parceiro/motivo, sem gerar eventos repetidos. Falhas, estrutura e parcial de uma nova execução `diagnose --live` aparecem na saída CLI; não são persistidos no centro de alertas. Os alertas operacionais de coleta existentes permanecem intactos. Candidatos não entram no run-all nem no estoque. Consulte [validação manual](VALIDACAO_MANUAL_PARCEIROS_8_2.md).

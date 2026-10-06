@@ -1132,3 +1132,12 @@ A WR Motos continua sendo o único parceiro integrado. Moto Marques (HTTP 403), 
 - Navegação, base V16, revisão, desenvolvimento e pesos da priorização preservados.
 
 Detalhes: [parceiros e configuração](docs/PARCEIROS_INTEGRADOS.md), [avaliação dos sites](docs/AVALIACAO_NOVOS_PARCEIROS.md) e [resultados](RESULTADOS_MILESTONE_8_1.md).
+
+
+## Milestone 8.2 — validação manual dos candidatos
+
+Thomas e Motonil continuam sem classificação segura: categoria genérica mistura motos com carro, kart ou serviço. Moto Marques funciona no navegador comum, mas mantém HTTP 403 e robots restringindo automação. Apenas WR permanece habilitada.
+
+`python -m app.partners diagnose <chave>` consulta a avaliação salva; `--live` permite diagnóstico HTTP limitado de Thomas/Motonil, sem publicação ou persistência. Parceiros, Alertas e a opção de qualidade em Indicadores mostram evidências e métricas separadas do estoque. Desconhecidos nunca viram motos automaticamente.
+
+Consulte [a auditoria manual](docs/VALIDACAO_MANUAL_PARCEIROS_8_2.md), [operação e limites](docs/PARCEIROS_INTEGRADOS.md#diagnóstico-e-qualidade--m82) e [resultados M8.2](RESULTADOS_MILESTONE_8_2.md).

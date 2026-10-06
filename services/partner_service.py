@@ -30,6 +30,17 @@ def partner_status(database, registry=None, *, include_candidates=False):
             "status": None,
             "active_ads": 0,
             "recent_errors": 0,
+            "method": "Adapter integrado",
+            "last_validation": None,
+            "safe_category": True if entry.partner_key == "wr_motos" else None,
+            "observed_items": None,
+            "valid_motorcycles": 0,
+            "excluded_by_type": None,
+            "unknown_items": None,
+            "classification_failures": None,
+            "diagnostic_errors": 0,
+            "metric_scope": "Estoque publicado; métricas de tipo não instrumentadas no collector existente",
+            "warning_codes": [],
         }
         if path.is_file():
             with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as db:
@@ -46,6 +57,8 @@ def partner_status(database, registry=None, *, include_candidates=False):
                             recent_errors=len(json.loads(last[2]).get("errors", [])),
                         )
                         summary = json.loads(last[2])
+                        row["method"] = summary.get("method") or row["method"]
+                        row["last_validation"] = None  # Collection date is not a manual audit date.
                         row.update(duration_seconds=summary.get("duration_seconds"), partial=last[1] == "PARTIAL")
                         row.update(collection_changes(db, entry.partner_key, last[3], last[1]))
                     row["active_ads"] = db.execute(
@@ -58,6 +71,7 @@ def partner_status(database, registry=None, *, include_candidates=False):
                 row["recent_errors"] = sum(
                     len(r["summary"].get("errors", [])) or bool(r["error_summary"]) for r in runs
                 )
+        row["valid_motorcycles"] = row["active_ads"]
         result.append(row)
     if include_candidates:
         result.extend(

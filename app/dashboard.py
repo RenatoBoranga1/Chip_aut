@@ -318,6 +318,13 @@ def main():
                     "Habilitado": "Sim" if r["enabled"] else "Não",
                     "Última coleta": r["last_collection"] or "Sem coleta",
                     "Integração": r["integration_status"],
+                    "Método": r["method"],
+                    "Última validação manual": r["last_validation"] or "Não registrada",
+                    "Categoria segura?": "Sim"
+                    if r["safe_category"] is True
+                    else "Não"
+                    if r["safe_category"] is False
+                    else "Não avaliada",
                     "Última execução": value(r["status"]) if r["status"] else "Sem execução",
                     "Motivo": r["reason"],
                     "Novos": r["new"],
@@ -331,6 +338,9 @@ def main():
                 for r in partner_status(service.config.database, registry, include_candidates=True)
             ]
         )
+        from ui.partner_diagnostics import classification_panel
+
+        classification_panel(service.config.database, registry)
         return
     if page == "Motos para desenvolvimento":
         development_page(service)

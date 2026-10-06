@@ -6,19 +6,27 @@ import os
 from dataclasses import asdict
 
 from partners.assessments import unintegrated
+from partners.diagnostics import diagnose
 from partners.registry import PartnerRegistry
 from services.partner_service import partner_status
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Parceiros configurados")
-    parser.add_argument("command", choices=["list", "status", "show"])
+    parser.add_argument("command", choices=["list", "status", "show", "diagnose"])
     parser.add_argument("partner", nargs="?")
     parser.add_argument("--db", default=os.environ.get("MOTO_DB", "data/coverage.sqlite3"))
+    parser.add_argument("--live", action="store_true", help="Diagnóstico HTTP limitado, sem salvar anúncios")
     args = parser.parse_args(argv)
+    if args.live and args.command != "diagnose":
+        parser.error("--live somente pode ser usado com diagnose")
     try:
         registry = PartnerRegistry()
-        if args.command == "show":
+        if args.command == "diagnose":
+            if not args.partner:
+                parser.error("diagnose exige a chave do parceiro")
+            output = diagnose(args.partner, live=args.live)
+        elif args.command == "show":
             if not args.partner:
                 parser.error("show exige a chave do parceiro")
             candidate = next((p for p in unintegrated(registry) if p["partner"] == args.partner), None)

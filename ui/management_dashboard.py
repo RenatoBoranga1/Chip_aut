@@ -153,6 +153,10 @@ def management_page(service):
         st.caption(
             f"{comparison['occurrences']} anúncios · {comparison['identity_groups']} identidades estritas ou casos isolados. Identidades não são somadas entre parceiros; ambiguidades permanecem separadas."
         )
+    if st.checkbox("Ver qualidade de classificação dos parceiros", key="partner_classification_metrics"):
+        from ui.partner_diagnostics import classification_panel
+
+        classification_panel(service.config.database)
     executive = [
         "Novos anúncios",
         "Possíveis novas identidades",

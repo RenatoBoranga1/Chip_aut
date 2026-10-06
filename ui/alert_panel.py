@@ -25,6 +25,9 @@ def navigate(page, field=None, identifier=None):
 
 
 def alert_center(dashboard):
+    from ui.partner_diagnostics import validation_notices
+
+    validation_notices()
     service = AlertService(dashboard.config)
     snapshot = service.snapshot()
     rows = snapshot["alerts"]

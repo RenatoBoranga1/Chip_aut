@@ -1,3 +1,5 @@
+> Atualização M8.2 em 05/10/2026: a seção abaixo preserva a fotografia histórica do M8.1. A revalidação atual está em [Validação manual 8.2](VALIDACAO_MANUAL_PARCEIROS_8_2.md). Thomas tem 78 itens observados, Motonil 19. Moto Marques abriu no navegador comum, mas o robots consultado nele proíbe ChatGPT-User e agentes genéricos; HTTP simples segue 403. Nenhum candidato aprovado.
+
 # Avaliação de novos parceiros — Milestone 8.1
 
 Avaliação iniciada em 02/10/2026 e complementada em 05/10/2026. Requisições HTTP públicas com identificação MotoCoverageMonitor/0.3, sem login, cookies privados, proxy ou contorno de proteção. Amostragem técnica não equivale a coleta operacional completa.
@@ -34,3 +36,13 @@ Essas decisões dizem respeito às evidências disponíveis, não à impossibili
 ## Amostragem e limites
 
 Thomas: uma listagem (79 itens), dois detalhes (carro e moto) e um endpoint de marcas observado. Motonil: página inicial, categoria (19 itens) e um detalhe BMW. Moto Marques: bloqueio encerrou a avaliação. HTML bruto fica apenas em reports/partner-assessment, ignorado pelo Git. Não houve coleta real completa de novos parceiros, pois nenhum passou pelo critério de integração. WR usa seu collector existente; nenhuma nova coleta da WR foi necessária para esta avaliação.
+
+## Reavaliação M8.2
+
+| Parceiro | Descoberta adicional | Decisão atual |
+|---|---|---|
+| Thomas | Menu e breadcrumb Motos também no carro; endpoint de marcas `/Home/ObterMarcasPorTipo/1` sem tipo individual; três detalhes auditados | DADOS INSUFICIENTES PARA CLASSIFICAÇÃO SEGURA |
+| Motonil | Categoria técnica 65 mistura moto, kart e serviço; mapa HTML e rota `index.php?route=product/category&path=65&limit=25` confirmam a mistura | DADOS INSUFICIENTES PARA CLASSIFICAÇÃO SEGURA |
+| Moto Marques | Browser público funciona; rotas `/multipla` e novo/usado observadas. HTTP 403 e robots com Disallow `/` para ChatGPT-User e `*`; inspeção encerrada | BLOQUEADO POR RESTRIÇÃO DE ACESSO |
+
+A amostra mista de seis detalhes rejeita o uso da categoria genérica como prova de motocicleta. Os 97 cards observados são desconhecidos para publicação, sem estoque persistido. Não houve coleta adicional da WR. Ausência de rota segura observada não prova inexistência definitiva. Sitemaps de Moto Marques não foram consultados após a restrição explícita. Evidência, respostas às perguntas e URLs estão no relatório manual.
