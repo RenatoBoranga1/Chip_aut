@@ -71,6 +71,18 @@ Servidor de validação iniciado pelo usuário em `127.0.0.1:8536`, usando cópi
 
 Verificados: menu com Assistente de IA em terceiro e Possíveis novas motos em quarto; cinco páginas continuam ocultas; abertura do painel; pergunta de contagens; resposta correta; fontes; ambiguidade de BMW com três opções e seleção explícita do ID 42. Após a correção do follow-up, o navegador integrado deixou de responder aos comandos de recarga, leitura e abertura de nova aba (timeouts CDP). A consulta corrigida foi repetida diretamente na cópia real: manteve veículo 42, retornou dez aplicações e levou 0,044 s. Isso não substitui a repetição visual. Permanecem pendentes no navegador: follow-up corrigido, clique em sugestão, nova conversa, provider ausente, loading, erro e tela pequena. Esses comportamentos têm cobertura automatizada onde indicada, mas o milestone ainda não está aprovado integralmente pelo critério visual. O usuário foi avisado e solicitado a reabrir a página.
 
+### Retomada visual em 6 de outubro
+
+O usuário reiniciou o dashboard na porta 8537, com file watcher desabilitado, cópia de validação e FakeLLMProvider. Foram então verificados no navegador:
+
+- Follow-up corrigido: “Mostre veículo #42” seguido de “E quais cabos ela usa?” manteve a BMW F 850 GS Premium 2023 e exibiu dez de dez aplicações, incluindo sistemas e cabo MX-AT1601.
+- Nova conversa: acionamento por teclado limpou mensagens e seleção, reexibindo as sugestões.
+- Sugestão “Resumo de hoje”: acionamento gerou resposta com 17 registros e período explícito 2026-10-06 a 2026-10-06, America/Sao_Paulo.
+- Carregamento: exibiu “Consultando dados e organizando evidências...” antes da resposta.
+- Tela pequena: viewport 390 × 844 com texto legível, navegação recolhida e entrada de conversa disponível.
+
+Esses resultados substituem as pendências correspondentes do registro anterior. **Restam somente provider ausente e serviço indisponível no navegador.** O diagnóstico local `../../work/m14_browser_scenarios.py`, fora do repositório, reutiliza o painel real com provider ausente, timeout simulado e recuperação offline; não acessa API externa nem grava dados operacionais. Na retomada de 8 de outubro, a porta 8538 inicialmente recusou conexão. A aprovação visual integral permanece pendente até executar os dois cenários.
+
 ## Limitações e documentação
 
 Não é chat de conhecimento geral nem busca semântica irrestrita: intenções e termos são determinísticos. Perguntas desconhecidas não são respondidas com conhecimento externo. Dados ausentes continuam ausentes. Não há pesquisa web, previsão, ação autônoma nem escrita operacional. O adapter remoto foi testado com HTTP simulado; disponibilidade e qualidade de um modelo real não foram avaliadas.
