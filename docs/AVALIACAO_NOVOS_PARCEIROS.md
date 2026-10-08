@@ -46,3 +46,9 @@ Thomas: uma listagem (79 itens), dois detalhes (carro e moto) e um endpoint de m
 | Moto Marques | Browser público funciona; rotas `/multipla` e novo/usado observadas. HTTP 403 e robots com Disallow `/` para ChatGPT-User e `*`; inspeção encerrada | BLOQUEADO POR RESTRIÇÃO DE ACESSO |
 
 A amostra mista de seis detalhes rejeita o uso da categoria genérica como prova de motocicleta. Os 97 cards observados são desconhecidos para publicação, sem estoque persistido. Não houve coleta adicional da WR. Ausência de rota segura observada não prova inexistência definitiva. Sitemaps de Moto Marques não foram consultados após a restrição explícita. Evidência, respostas às perguntas e URLs estão no relatório manual.
+
+## Atualização M8.3 — 08/10/2026
+
+A investigação alternativa foi concluída sem aprovação de novos parceiros. Thomas possui API AutoCerto documentada, mas autenticada; Motonil continua sem tipo individual seguro; a loja Webmotors candidata a Moto Marques tem identidade da unidade não comprovada. Só WR está habilitada. As evidências de M8.2 e suas contagens históricas permanecem preservadas.
+
+Consulte [fontes, contratos, CLI e limites do M8.3](FONTES_ALTERNATIVAS_PARCEIROS.md). A página Parceiros mostra as fontes salvas; abrir o painel não consulta sites. Avisos de fonte são diagnósticos deduplicados, sem notificações persistidas.

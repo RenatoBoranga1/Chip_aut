@@ -1,0 +1,163 @@
+{
+  "sources": [
+    {
+      "source_last_validated_at": "2026-10-08",
+      "status": "REJECTED",
+      "access": "PUBLIC_ALLOWED",
+      "classification": "UNAVAILABLE",
+      "identity": "VERIFIED",
+      "fields": [
+        "ID nativo na URL",
+        "título",
+        "URL de detalhe"
+      ],
+      "evidence": [
+        "https://thomasmotos.com.br/Veiculo/spin-1.8-ltz-8v-flex-4p-automatico-flex-2024/5058456/detalhes"
+      ],
+      "warning_codes": [
+        "TYPE_CLASSIFICATION_UNAVAILABLE"
+      ],
+      "audited_sample": 0,
+      "false_positives": null,
+      "partner": "thomas_motos",
+      "source_id": "catalog_details",
+      "source_kind": "HTML",
+      "source_url": "https://thomasmotos.com.br/Veiculos",
+      "source_provider": "AutoCerto",
+      "trust": "OFFICIAL_DIRECT",
+      "reason": "Catálogo e três detalhes não fornecem tipo individual; breadcrumb misto não comprova motocicleta.",
+      "observed_items": 75,
+      "unknown": 75
+    },
+    {
+      "source_last_validated_at": "2026-10-08",
+      "status": "BLOCKED",
+      "access": "AUTH_REQUIRED",
+      "classification": "UNVERIFIED",
+      "identity": "UNVERIFIED",
+      "fields": [
+        "VeiculoRetornoModel (contrato documentado)"
+      ],
+      "evidence": [
+        "https://integracao.autocerto.com/swagger/docs/V1"
+      ],
+      "warning_codes": [
+        "ALTERNATIVE_SOURCE_FAILED"
+      ],
+      "audited_sample": 0,
+      "false_positives": null,
+      "partner": "thomas_motos",
+      "source_id": "provider_api",
+      "source_kind": "PUBLIC_API",
+      "source_url": "https://integracao.autocerto.com/api/Veiculo/ObterEstoque",
+      "source_provider": "AutoCerto",
+      "trust": "OFFICIAL_PROVIDER",
+      "reason": "Swagger público; estoque exige OAuth2 privado. Apenas documentação inspecionada, sem autenticar ou consultar estoque."
+    },
+    {
+      "source_last_validated_at": "2026-10-08",
+      "status": "REJECTED",
+      "access": "PUBLIC_ALLOWED",
+      "classification": "UNAVAILABLE",
+      "identity": "VERIFIED",
+      "fields": [
+        "product_id",
+        "título",
+        "URL de detalhe"
+      ],
+      "evidence": [
+        "https://www.motonil.com.br/MOTOS/kart-mirim",
+        "https://www.motonil.com.br/MOTOS/a-motonil-motors-vende-sua-moto-em-consignacao"
+      ],
+      "warning_codes": [
+        "TYPE_CLASSIFICATION_UNAVAILABLE"
+      ],
+      "audited_sample": 0,
+      "false_positives": null,
+      "partner": "motonil",
+      "source_id": "catalog_details",
+      "source_kind": "HTML",
+      "source_url": "https://www.motonil.com.br/MOTOS",
+      "source_provider": "OpenCart / AF Systems",
+      "trust": "OFFICIAL_DIRECT",
+      "reason": "Categoria 65 inclui kart e consignação. Três detalhes sem tipo individual ou JSON-LD; fragmentos AJAX não resolvem classificação.",
+      "observed_items": 19,
+      "unknown": 19
+    },
+    {
+      "source_last_validated_at": "2026-10-08",
+      "status": "REJECTED",
+      "access": "PUBLIC_ALLOWED",
+      "classification": "UNAVAILABLE",
+      "identity": "VERIFIED",
+      "fields": [
+        "links de categorias"
+      ],
+      "evidence": [],
+      "warning_codes": [
+        "TYPE_CLASSIFICATION_UNAVAILABLE"
+      ],
+      "audited_sample": 0,
+      "false_positives": null,
+      "partner": "motonil",
+      "source_id": "site_map",
+      "source_kind": "SITEMAP",
+      "source_url": "https://www.motonil.com.br/index.php?route=information/sitemap",
+      "source_provider": "OpenCart / AF Systems",
+      "trust": "OFFICIAL_DIRECT",
+      "reason": "Mapa HTML sem subcategorias de MOTOS. sitemap.xml respondeu vazio; sitemap_index.xml retornou 404. Mapa não comprova tipo."
+    },
+    {
+      "source_last_validated_at": "2026-10-08",
+      "status": "BLOCKED",
+      "access": "ROBOTS_DISALLOWED",
+      "classification": "UNAVAILABLE",
+      "identity": "UNVERIFIED",
+      "fields": [],
+      "evidence": [],
+      "warning_codes": [
+        "SOURCE_UNAVAILABLE"
+      ],
+      "audited_sample": 0,
+      "false_positives": null,
+      "partner": "moto_marques",
+      "source_id": "restricted_original",
+      "source_kind": "HTML",
+      "source_url": "https://motomarquesmultimarcas.com.br/",
+      "source_provider": "Não confirmado",
+      "trust": "OFFICIAL_DIRECT",
+      "reason": "Restrição registrada no M8.2 preservada; nenhuma nova requisição ao domínio neste milestone."
+    },
+    {
+      "source_last_validated_at": "2026-10-08",
+      "status": "BLOCKED",
+      "access": "PUBLIC_ALLOWED",
+      "classification": "UNVERIFIED",
+      "identity": "UNVERIFIED",
+      "fields": [
+        "dealerInfo.id",
+        "dealerSlug",
+        "endereço",
+        "filters.vehicleType",
+        "OfferCatalog/Vehicle"
+      ],
+      "evidence": [
+        "https://motomarques.com.br/nossas-lojas",
+        "https://www.webmotors.com.br/robots.txt"
+      ],
+      "warning_codes": [
+        "ALTERNATIVE_SOURCE_FAILED"
+      ],
+      "audited_sample": 0,
+      "false_positives": null,
+      "partner": "moto_marques",
+      "source_id": "marketplace_candidate",
+      "source_kind": "OFFICIAL_MARKETPLACE",
+      "source_url": "https://www.webmotors.com.br/motos/pr/loja.moto-marques-3918827",
+      "source_provider": "Webmotors",
+      "trust": "UNVERIFIED",
+      "reason": "JSON público identifica dealer 3918827, endereço Ney Braga 1440. Vínculo com a unidade Multimarcas solicitada (Capitão Índio Bandeira 2261) não comprovado; nome não basta.",
+      "observed_items": 27
+    }
+  ]
+}

@@ -57,3 +57,7 @@ Nenhuma regra de tipo foi aprovada. `UNKNOWN` nunca é publicado. O diagnóstico
 Parceiros mostra método, última validação manual e categoria segura, além da tabela de qualidade. Indicadores gerenciais oferece **Ver qualidade de classificação dos parceiros**. A data da coleta WR não é apresentada como auditoria manual. Métricas não instrumentadas no collector WR ficam não avaliadas; motos publicadas correspondem aos anúncios ativos existentes.
 
 Os avisos salvos de acesso/classificação aparecem em Parceiros e Alertas, uma vez por parceiro/motivo, sem gerar eventos repetidos. Falhas, estrutura e parcial de uma nova execução `diagnose --live` aparecem na saída CLI; não são persistidos no centro de alertas. Os alertas operacionais de coleta existentes permanecem intactos. Candidatos não entram no run-all nem no estoque. Consulte [validação manual](VALIDACAO_MANUAL_PARCEIROS_8_2.md).
+
+## Fontes alternativas — M8.3
+
+Nenhum candidato adicional habilitado. Metadados em `config/partner_sources.json`; `sources <parceiro>` consulta as fontes salvas; `collect <parceiro> --dry-run` executa somente o diagnóstico limitado permitido, sem banco, publicação ou matching. A WR continua com seu coletor existente. Veja [fontes alternativas e limitações](FONTES_ALTERNATIVAS_PARCEIROS.md).

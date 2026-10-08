@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 
 from partners.access import USER_AGENT, AccessDeniedError, check_status
 from partners.assessments import CANDIDATES, VALIDATIONS
+from partners.sources import source_report
 
 CATALOGS = {
     "thomas_motos": "https://thomasmotos.com.br/Veiculos",
@@ -40,6 +41,7 @@ def saved_diagnosis(partner):
             "enabled": False,
             "publishable": False,
             "integration_status": "Não integrado",
+            "alternative_sources": source_report(partner),
         }
     )
 

@@ -1150,3 +1150,7 @@ A página **Assistente de IA** consulta scanner, aplicações/cabos, revisão, p
 Para desenvolvimento offline, defina `AI_ASSISTANT_ENABLED=true` e `AI_PROVIDER=fake` no ambiente do Streamlit. Para API, configure também provider/modelo/chave conforme `.env.example`, sem versionar segredos. Não há habilitação automática, chamada paga nos testes ou ferramenta de escrita.
 
 Veja [arquitetura, configuração e limites](docs/ASSISTENTE_IA.md) e [resultados e pendências de validação](RESULTADOS_MILESTONE_14.md).
+
+## Milestone 8.3 — fontes alternativas legítimas
+
+Investigadas fontes oficiais de Thomas, Motonil e fontes externas de Moto Marques. Nenhuma atendeu todos os critérios de acesso, tipo e identidade; somente WR permanece ativa. CLI `sources` e `collect --dry-run`, metadados persistidos e painel Parceiros permitem consultar os motivos sem publicar UNKNOWN ou alterar decisões. [Evidências e limites](docs/FONTES_ALTERNATIVAS_PARCEIROS.md).

@@ -8,21 +8,31 @@ from dataclasses import asdict
 from partners.assessments import unintegrated
 from partners.diagnostics import diagnose
 from partners.registry import PartnerRegistry
+from partners.sources import dry_run, source_report
 from services.partner_service import partner_status
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Parceiros configurados")
-    parser.add_argument("command", choices=["list", "status", "show", "diagnose"])
+    parser.add_argument("command", choices=["list", "status", "show", "diagnose", "sources", "collect"])
     parser.add_argument("partner", nargs="?")
     parser.add_argument("--db", default=os.environ.get("MOTO_DB", "data/coverage.sqlite3"))
     parser.add_argument("--live", action="store_true", help="Diagnóstico HTTP limitado, sem salvar anúncios")
+    parser.add_argument("--dry-run", action="store_true", help="Diagnóstico sem persistência")
     args = parser.parse_args(argv)
+    if args.dry_run and args.command != "collect":
+        parser.error("--dry-run somente pode ser usado com collect")
+    if args.command == "collect" and not args.dry_run:
+        parser.error("Fontes alternativas permitem somente collect --dry-run")
     if args.live and args.command != "diagnose":
         parser.error("--live somente pode ser usado com diagnose")
     try:
         registry = PartnerRegistry()
-        if args.command == "diagnose":
+        if args.command in {"sources", "collect"}:
+            if not args.partner:
+                parser.error("Informe a chave do parceiro")
+            output = source_report(args.partner) if args.command == "sources" else dry_run(args.partner)
+        elif args.command == "diagnose":
             if not args.partner:
                 parser.error("diagnose exige a chave do parceiro")
             output = diagnose(args.partner, live=args.live)

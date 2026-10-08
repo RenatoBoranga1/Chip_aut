@@ -77,3 +77,7 @@ No diagnóstico da página inteira, todos os 78 cards Thomas e 19 cards Motonil 
 HTML e registros brutos locais em reports/partner-assessment-8-2, ignorados pelo Git. Documentos completos não são versionados. Fixtures de diagnóstico são mínimas, sanitizadas e não servem de collector. Fontes: [Thomas](https://thomasmotos.com.br/Veiculos), [Motonil categoria](https://www.motonil.com.br/MOTOS), [mapa oficial Motonil](https://www.motonil.com.br/index.php?route=information/sitemap), [Moto Marques robots](https://motomarquesmultimarcas.com.br/robots.txt).
 
 A investigação eliminou a dúvida sobre as rotas examinadas; não demonstra inexistência universal de qualquer endpoint. Nenhum parâmetro ou endpoint não observado foi inventado. Para nova aprovação será necessária evidência pública melhor e, no caso Moto Marques, mudança das restrições de acesso. A regra de amostra 10–20 seguida de coleta completa só se aplica a parceiro candidato à aprovação; nenhum chegou a essa etapa.
+
+## Complemento M8.3
+
+O resultado acima é histórico. Na avaliação de 08/10/2026, Thomas apresentou 75 UNKNOWN e Motonil 19 UNKNOWN; não são anúncios publicados. Nenhuma nova visita ao domínio bloqueado da Moto Marques. Detalhes em [fontes alternativas](FONTES_ALTERNATIVAS_PARCEIROS.md).
