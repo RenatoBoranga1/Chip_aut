@@ -1,5 +1,7 @@
 # Milestone 14 — Assistente de IA operacional
 
+**Status: validação concluída em 8 de outubro de 2026.** Os registros de pendência abaixo são históricos; os dois cenários restantes foram aprovados no fechamento visual. Implementação em `eb80b7e`, com 1.077 testes aprovados; fechamento documental na mesma branch, sem alterações adicionais no código de produção.
+
 ## Referência e escopo
 
 - Repositório: RenatoBoranga1/Chip_aut.
@@ -82,6 +84,18 @@ O usuário reiniciou o dashboard na porta 8537, com file watcher desabilitado, c
 - Tela pequena: viewport 390 × 844 com texto legível, navegação recolhida e entrada de conversa disponível.
 
 Esses resultados substituem as pendências correspondentes do registro anterior. **Restam somente provider ausente e serviço indisponível no navegador.** O diagnóstico local `../../work/m14_browser_scenarios.py`, fora do repositório, reutiliza o painel real com provider ausente, timeout simulado e recuperação offline; não acessa API externa nem grava dados operacionais. Na retomada de 8 de outubro, a porta 8538 inicialmente recusou conexão. A aprovação visual integral permanece pendente até executar os dois cenários.
+
+### Fechamento visual em 8 de outubro
+
+Diagnóstico iniciado pelo usuário em `127.0.0.1:8538`, reutilizando `assistant_page` e `AIAssistantService` reais com dependências de provider simuladas, sem chamadas externas:
+
+- Provider ausente: exibiu **Assistente de IA não configurado.**, sem exceção global.
+- Provider indisponível: a pergunta “Quantos veículos existem na base?” provocou timeout simulado e exibiu **O serviço de IA está temporariamente indisponível.**, mantendo o formulário utilizável e sem expor traceback.
+- Recuperação: selecionar Consulta offline e repetir a pergunta retornou **3.361 veículos, 8.744 aplicações e 616 sistemas**, com fontes da base 3.
+- Console do navegador: nenhum erro capturado durante esses cenários.
+- Evidência visual local: `reports/milestone-14/browser-recovery.jpg`, ignorada pelo Git.
+
+Combinados com a validação do dashboard na porta 8537, esses resultados encerram os cenários visuais exigidos. O diagnóstico de falhas é isolado, não uma chamada a um provider remoto real. Permanecem as limitações declaradas do adapter externo. Nenhum código de produção foi alterado após a suíte de 1.077 testes; nesta etapa apenas o relatório foi atualizado e verificado com `git diff --check`.
 
 ## Limitações e documentação
 
