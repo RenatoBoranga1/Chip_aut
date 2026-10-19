@@ -46,6 +46,12 @@ CLASS_NAMES = {
     "UNKNOWN": "Indefinido",
 }
 ALERT_NAMES = {
+    "PARTNER_FILE_WAITING": "Arquivo aguardando confirmação",
+    "PARTNER_FILE_INVALID": "Arquivo inválido na inbox",
+    "PARTNER_IMPORT_STALE": "Importação desatualizada",
+    "PARTNER_IMPORT_ANOMALY": "Anomalia na importação",
+    "PARTNER_TRIAGE_PENDING": "Triagem pendente",
+    "PARTNER_TRIAGE_STALE": "Coleta de triagem desatualizada",
     "IMPORT_PENDING": "Aguardando primeiro arquivo",
     "IMPORT_FAILED": "Importação não concluída",
     "IMPORT_INVALID_ROWS": "Arquivo com linhas inválidas",
@@ -80,6 +86,9 @@ def operational_metrics(database):
         "discarded": "Descartados como kart/serviço",
     }
     st.table([{"Indicador": labels[k], "Quantidade": v} for k, v in values.items()])
+    from ui.partner_inbox import health_panel
+
+    health_panel(database)
 
 
 def operational_alerts(database):
@@ -217,9 +226,13 @@ def triage_panel(service, data):
             st.rerun()
         except ValueError as exc:
             st.error(str(exc))
-    rows = data["staging"]
+    from ui.partner_inbox import batch_triage
+
+    batch_triage(service, data["staging"])
+    include_known = st.checkbox("Mostrar classificados na revisão individual", key="triage_include_known")
+    rows = [r for r in data["staging"] if include_known or r["classification"] in {"PENDING_CLASSIFICATION", "UNKNOWN"}]
     if not rows:
-        st.info("Nenhum item em staging. Use a coleta permitida para iniciar.")
+        st.info("Nenhum item pendente nesta seleção. Classificações conhecidas são preservadas.")
         return
     row = st.selectbox(
         "Item para classificar",
@@ -278,6 +291,11 @@ def operations_page(service):
     )
     if service.config.read_only:
         st.info("Somente leitura: pré-visualização disponível; importação e triagem desabilitadas.")
+    from ui.partner_inbox import health_panel, inbox_panel
+
+    health_panel(service.config.database)
+    with st.expander("Caixa de entrada — operação assistida"):
+        inbox_panel(service)
     for partner in ("thomas_motos", "moto_marques"):
         with st.expander(integration(partner).display_name + " — Importar estoque"):
             if partner == "thomas_motos":

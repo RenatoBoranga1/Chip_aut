@@ -13,6 +13,9 @@ def run_all(database, config, *, registry=None, request_key=None, runner=None):
     registry = registry or PartnerRegistry()
     runner = runner or run_pipeline
     entries = registry.list(enabled_only=True)
+    from services.partner_operations_config import INBOX_ENV, inbox_root
+
+    inbox_configured = default_registry and any(inbox_root(key) is not None for key in INBOX_ENV)
     operational = []
     if default_registry:
         from partners.integration import operational_modes
@@ -22,7 +25,7 @@ def run_all(database, config, *, registry=None, request_key=None, runner=None):
             for entry in operational_modes()
             if entry["partner_key"] != "wr_motos" and entry["automation_enabled"] and entry["supports_scheduler"]
         ]
-    if not entries and not operational:
+    if not entries and not operational and not inbox_configured:
         return {}
     if not Path(database).is_file():
         raise ValueError("Banco não encontrado; importe a base do scanner primeiro")
@@ -55,4 +58,12 @@ def run_all(database, config, *, registry=None, request_key=None, runner=None):
             key = entry["partner_key"]
             if key not in result:
                 result[key] = run_operation(database, config, partner_key=key)
+    if inbox_configured:
+        from services.partner_inbox_service import poll_inboxes
+
+        output = poll_inboxes(database)
+        result["partner_inbox"] = {
+            "status": "FAILED" if output.get("status") == "FAILED" else "SUCCESS",
+            "summary": output,
+        }
     return result

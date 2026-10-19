@@ -1162,3 +1162,11 @@ WR mantém coleta pública automática. Thomas e Moto Marques passam a aceitar C
 O cadastro operacional distingue habilitação de automação e preserva as avaliações históricas M8.1–M8.3 acima. Importações e triagem alimentam o matching, revisão e consolidação existentes, sem alterar a base V16. Novas ações ficam em **Parceiros**; IA continua somente leitura.
 
 Veja [modos](docs/MODOS_INTEGRACAO_PARCEIROS.md), [importação](docs/IMPORTACAO_ESTOQUE_PARCEIROS.md), [triagem Motonil](docs/TRIAGEM_MOTONIL.md), [Thomas autenticada](docs/THOMAS_AUTHENTICATED_SOURCE.md) e [resultados e pendências](RESULTADOS_MILESTONE_8_4.md).
+
+## Milestone 15 — operação assistida
+
+A caixa de entrada prepara importações de Thomas/Moto Marques com preview, comparação, anomalias e confirmação humana. Motonil reutiliza memória e oferece triagem em lote com proteção contra revisão antiga. Saúde, desatualização, histórico e eficiência ficam em Parceiros e Indicadores; o Assistente consulta em leitura.
+
+Configure as pastas por `THOMAS_INBOX_PATH`/`MOTO_MARQUES_INBOX_PATH`; sem configuração não há leitura de pastas. Scheduler e run-all podem preparar a inbox, preservando a confirmação humana para publicar.
+
+Veja [operação diária](docs/OPERACAO_ASSISTIDA_PARCEIROS.md), [inbox e CLI](docs/INBOX_PARCEIROS.md) e [validação M15](RESULTADOS_MILESTONE_15.md).

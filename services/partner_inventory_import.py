@@ -6,6 +6,7 @@ import io
 import os
 import re
 import zipfile
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 from xml.etree.ElementTree import ParseError
@@ -15,7 +16,7 @@ from openpyxl import load_workbook
 from database.inventory_repository import alert, event, now
 from database.partner_repository import PartnerRepository
 from database.repository import encode
-from database.transaction import atomic_database
+from database.transaction import atomic_database, joined_connection
 from partners.integration import integration
 from partners.models import CollectionResult, PartnerMotorcycle
 from partners.normalization import normalize_advertisement
@@ -57,7 +58,10 @@ def read_file(content, filename):
             dialect = csv.Sniffer().sniff(text[:8192], delimiters=",;\t")
         except csv.Error:
             dialect = csv.excel
-        rows = list(csv.reader(io.StringIO(text), dialect))
+        try:
+            rows = list(csv.reader(io.StringIO(text), dialect, strict=True))
+        except csv.Error:
+            raise ValueError("CSV malformado") from None
     elif suffix == ".xlsx":
         try:
             with zipfile.ZipFile(io.BytesIO(content)) as archive:
@@ -152,10 +156,11 @@ def preview_file(partner, content, filename, mapping=None, mode="INCREMENTAL"):
     digest = hashlib.sha256(content).hexdigest()
     rows = []
     seen = set()
-    duplicates = missing_id = missing_year = missing_model = 0
+    duplicates = missing_id = missing_year = missing_model = missing_manufacturer = 0
     for index, data in enumerate(raw, 2):
         row, errors = clean_row({key: data.get(mapping.get(key, "")) for key in FIELDS})
         missing_model += int(not row["model"])
+        missing_manufacturer += int(not row["manufacturer"])
         missing_year += int(not isinstance(row["year"], int))
         synthetic = False
         if not row["external_id"]:
@@ -183,6 +188,7 @@ def preview_file(partner, content, filename, mapping=None, mode="INCREMENTAL"):
         "missing_id": missing_id,
         "missing_year": missing_year,
         "missing_model": missing_model,
+        "missing_manufacturer": missing_manufacturer,
         "rows": rows,
         "preview": rows[:20],
     }
@@ -263,9 +269,10 @@ class PartnerInventoryImportService:
             raise ValueError("Sem linhas válidas ou retrato completo contém linhas inválidas")
         batch = hashlib.sha256(encode([review["file_hash"], review["mapping"], mode]).encode()).hexdigest()
         try:
+            joined = joined_connection(self.database) is not None
             with (
-                ExecutionLock(self.database, partner=partner),
-                atomic_database(self.database),
+                nullcontext() if joined else ExecutionLock(self.database, partner=partner),
+                nullcontext() if joined else atomic_database(self.database),
                 PartnerRepository(self.database) as repo,
             ):
                 db = repo.connection
@@ -333,7 +340,11 @@ class PartnerInventoryImportService:
                 }
             from services.prioritization_service import safe_refresh
 
-            safe_refresh(self.database, partner, "collection")
+            if not joined:
+                safe_refresh(self.database, partner, "collection")
+                from services.partner_health_service import refresh_health
+
+                refresh_health(self.database)
             return output
         except Exception:
             self.failure(partner, "IMPORT_FAILED", reviewer)

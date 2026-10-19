@@ -68,10 +68,18 @@ class MotonilStagingService:
         writable(self.database, self.read_only)
         if not items or len(items) > 500:
             raise ValueError("Lote de triagem vazio ou maior que 500 itens")
+        items = [dict(i) for i in items]
+        for item in items:
+            if not item.get("external_id"):
+                from partners.sources import public_url
+
+                url = public_url(item.get("source_url") or "")
+                item["external_id"] = "url:" + hashlib.sha256(url.encode()).hexdigest()
         ids = [str(i.get("external_id", "")) for i in items]
         if not all(ids) or len(set(ids)) != len(ids):
             raise ValueError("IDs vazios ou duplicados na triagem")
         accepted = []
+        reused = 0
         with (
             ExecutionLock(self.database, partner="motonil"),
             atomic_database(self.database),
@@ -99,6 +107,7 @@ class MotonilStagingService:
                         "INSERT INTO partner_staging VALUES ('motonil',?,?,?,?,?,'PENDING_CLASSIFICATION',1,'{}')",
                         (external_id, sig, encode(payload), stamp, stamp),
                     )
+                    event(db, "motonil", "TRIAGE_CREATED", "sistema", {"reason": "Novo item"}, external_id)
                 elif prior[0] != sig:
                     withdraw(db, external_id, "Identidade mudou na triagem Motonil; exige nova classificação humana")
                     db.execute(
@@ -118,6 +127,7 @@ class MotonilStagingService:
                         "UPDATE partner_staging SET last_seen=?,payload_json=? WHERE partner='motonil' AND external_id=?",
                         (stamp, encode(payload), external_id),
                     )
+                    reused += prior[1] in {"MOTORCYCLE", "KART", "SERVICE", "OTHER"}
                     if prior[1] == "MOTORCYCLE":
                         accepted.append(json.loads(prior[2]))
             if accepted:
@@ -131,64 +141,116 @@ class MotonilStagingService:
                 "motonil",
                 "STAGING_COLLECTED",
                 "sistema",
-                {"observed": len(items), "accepted_from_memory": len(accepted)},
+                {"observed": len(items), "accepted_from_memory": len(accepted), "reused_decisions": reused},
             )
         self.refresh()
-        return {"staged": len(items), "accepted_from_memory": len(accepted), "published_automatically_unknown": 0}
+        return {
+            "staged": len(items),
+            "accepted_from_memory": len(accepted),
+            "reused_decisions": reused,
+            "published_automatically_unknown": 0,
+        }
 
     @staticmethod
     def pending(db):
-        count = db.execute(
-            "SELECT count(*) FROM partner_staging WHERE classification IN ('PENDING_CLASSIFICATION','UNKNOWN')"
-        ).fetchone()[0]
-        alert(db, "motonil", "TRIAGE_PENDING", bool(count))
+        # M15 maintains PARTNER_TRIAGE_PENDING after commit. Resolve its legacy
+        # counterpart so the same pending work never appears as two active alerts.
+        alert(db, "motonil", "TRIAGE_PENDING", False)
 
     def classify(self, external_id, classification, *, reviewer, note, expected_revision, identity=None):
-        writable(self.database, self.read_only)
-        if classification not in CLASSES - {"PENDING_CLASSIFICATION"} or not reviewer.strip() or not note.strip():
+        if not note.strip():
             raise ValueError("Informe classificação, responsável e justificativa")
+        self.classify_batch(
+            [
+                {
+                    "partner": "motonil",
+                    "external_id": str(external_id),
+                    "revision": expected_revision,
+                    "identity": identity or {},
+                }
+            ],
+            classification,
+            reviewer=reviewer,
+            note=note,
+            confirmed=True,
+        )
+        return {"external_id": str(external_id), "classification": classification, "revision": expected_revision + 1}
+
+    def classify_batch(self, selections, classification, *, reviewer, note="", confirmed=False):
+        writable(self.database, self.read_only)
+        if not confirmed or not reviewer.strip() or classification not in CLASSES - {"PENDING_CLASSIFICATION"}:
+            raise ValueError("Confirme o lote, a classificação e o responsável")
+        if not selections or len(selections) > 100:
+            raise ValueError("Selecione de 1 a 100 itens")
+        ids = [str(s.get("external_id", "")) for s in selections]
+        if len(set(ids)) != len(ids) or not all(ids) or any(s.get("partner") != "motonil" for s in selections):
+            raise ValueError("Lote deve conter itens distintos somente da Motonil")
+        accepted = []
         with (
             ExecutionLock(self.database, partner="motonil"),
             atomic_database(self.database),
             PartnerRepository(self.database) as repo,
         ):
             db = repo.connection
-            prior = db.execute(
-                "SELECT classification,revision,payload_json FROM partner_staging WHERE partner='motonil' AND external_id=?",
-                (str(external_id),),
-            ).fetchone()
-            if prior is None or prior[1] != expected_revision:
-                raise ValueError("Item mudou; atualize a tela antes de classificar")
-            payload = json.loads(prior[2])
-            row = {}
-            if classification == "MOTORCYCLE":
-                row, errors = clean_row(
-                    {**(identity or {}), "external_id": str(external_id), "detail_url": payload["source_url"]}
-                )
-                if errors:
-                    raise ValueError("; ".join(errors))
+            # Validate every revision and every motorcycle before any publication.
+            changes = []
+            for selection in selections:
+                identifier = str(selection["external_id"])
+                prior = db.execute(
+                    "SELECT classification,revision,payload_json FROM partner_staging WHERE partner='motonil' AND external_id=?",
+                    (identifier,),
+                ).fetchone()
+                if prior is None or prior[1] != selection.get("revision"):
+                    raise ValueError("Item mudou; atualize a tela antes de classificar o lote")
+                row = {}
+                if classification == "MOTORCYCLE":
+                    payload = json.loads(prior[2])
+                    row, errors = clean_row(
+                        {
+                            **selection.get("identity", {}),
+                            "external_id": identifier,
+                            "detail_url": payload["source_url"],
+                        }
+                    )
+                    if errors:
+                        raise ValueError("; ".join(errors))
+                    accepted.append(row)
+                changes.append((identifier, prior[0], row))
+            if accepted:
                 publish_rows(
-                    self.database, "motonil", [row], False, "STAGED_COLLECTION / confirmação humana", self.reports
+                    self.database, "motonil", accepted, False, "STAGED_COLLECTION / confirmação humana", self.reports
                 )
-            else:
-                withdraw(db, str(external_id), "Classificação humana alterada: " + classification)
-            db.execute(
-                "UPDATE partner_staging SET classification=?,identity_json=?,revision=revision+1 WHERE partner='motonil' AND external_id=?",
-                (classification, encode(row), str(external_id)),
-            )
-            event(
-                db,
-                "motonil",
-                "TRIAGE_CLASSIFIED",
-                reviewer,
-                {"from": prior[0], "to": classification, "note": note, "identity": row},
-                str(external_id),
-            )
+            for identifier, previous, row in changes:
+                if classification != "MOTORCYCLE":
+                    withdraw(db, identifier, "Classificação humana alterada: " + classification)
+                db.execute(
+                    "UPDATE partner_staging SET classification=?,identity_json=?,revision=revision+1 WHERE partner='motonil' AND external_id=?",
+                    (classification, encode(row), identifier),
+                )
+                event(
+                    db,
+                    "motonil",
+                    "TRIAGE_CLASSIFIED",
+                    reviewer,
+                    {"from": previous, "to": classification, "note": note[:2000], "identity": row},
+                    identifier,
+                )
+                event(
+                    db,
+                    "motonil",
+                    "TRIAGE_RESOLVED",
+                    reviewer,
+                    {"from": previous, "to": classification, "batch_size": len(changes)},
+                    identifier,
+                )
             self.pending(db)
         self.refresh()
-        return {"external_id": str(external_id), "classification": classification, "revision": expected_revision + 1}
+        return {"classified": len(selections), "classification": classification}
 
     def refresh(self):
         from services.prioritization_service import safe_refresh
 
         safe_refresh(self.database, "motonil", "collection")
+        from services.partner_health_service import refresh_health
+
+        refresh_health(self.database)

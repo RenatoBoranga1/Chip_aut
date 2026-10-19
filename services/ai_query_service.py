@@ -146,9 +146,16 @@ class AIQueryService:
 
             operations = read_operations(self._config.database)
             operational = {p["partner_key"]: p for p in operations["partners"]}
+            from services.partner_health_service import partner_health
+
+            health_data = partner_health(self._config.database, clock=self._clock)
+            health = {p["partner"]: p for p in health_data["partners"]}
+            e = health_data["efficiency"]
             for row in rows[:limit]:
                 op = operational.get(row["partner"], {})
+                h = health.get(row["partner"], {})
                 fact(
+                    f"Saúde: {h.get('health')}; arquivos aguardando confirmação: {h.get('waiting', 0)}; inválidos: {h.get('invalid', 0)}; anomalias: {h.get('anomalies', 0)}; última atualização: {shown(h.get('last_update'))}; dias desde atualização: {shown(h.get('days'))}. "
                     f"Operação: {op.get('status', 'Não configurada')}; modo {op.get('integration_mode', 'Não configurado')}; automação {'sim' if op.get('automation_enabled') else 'não'}. "
                     f"Itens aguardando triagem: {op.get('pending_triage', 0)}; última importação: {shown(op.get('last_import'))}. "
                     f"Avaliação histórica da coleta pública — {row['display_name']}: {row['integration_status']}; habilitado: {'sim' if row['enabled'] else 'não'}. "
@@ -157,6 +164,10 @@ class AIQueryService:
                     "partner_registry",
                     row["partner"],
                 )
+                if row["partner"] == "motonil":
+                    result["facts"][-1]["text"] += (
+                        f" Triagens evitadas por memória humana: {e['reused']} de {e['observed']}; taxa de reaproveitamento: {e['reuse_percent']}%."
+                    )
             result["total"] = len(rows)
         elif intent == "BASE_VERSION_LOOKUP":
             data = self._repository.get_base_versions(limit)

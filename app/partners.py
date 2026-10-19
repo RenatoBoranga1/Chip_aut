@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import sys
 from dataclasses import asdict
 
 from partners.assessments import unintegrated
@@ -13,6 +14,11 @@ from services.partner_service import partner_status
 
 
 def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "inbox":
+        from app.partner_inbox import main as inbox_main
+
+        return inbox_main(argv[1:])
     parser = argparse.ArgumentParser(description="Parceiros configurados")
     parser.add_argument(
         "command",

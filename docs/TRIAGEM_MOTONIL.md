@@ -17,3 +17,7 @@ python -m app.partners triage motonil
 A classificação CLI aceita `--id`, `--classification`, `--revision`, `--identity` (JSON com manufacturer/model/year/version), `--reviewer`, `--note` e `--confirm`. Prefira a tela para reduzir erros de escape do shell.
 
 `MOTONIL_AUTOMATION_ENABLED=true` permite scheduler até staging. Isso nunca autoriza classificação automática. O padrão é desligado. Fixtures de teste são explicitamente sintéticas e não representam anúncios reais; não devem ser publicadas no banco operacional.
+
+## Operação diária — M15
+
+A tela mostra pendentes por padrão. Use a opção de conhecidos para reclassificar. Triagem em lote aceita até 100 itens, exige confirmação e responsável e valida todas as revisões antes de aplicar. Marca/modelo/ano são conferidos para cada Moto; um item inválido reverte o lote. Sem ID nativo, URL estável válida da Motonil pode fornecer identidade; títulos isolados não reutilizam decisões. Reaproveitamento inclui também Kart/Serviço/Outro e aparece nos indicadores como decisões humanas reutilizadas por observação. [Detalhes](OPERACAO_ASSISTIDA_PARCEIROS.md).

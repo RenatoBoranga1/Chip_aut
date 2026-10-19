@@ -1,0 +1,6 @@
+{
+  "thomas_motos": {"scan_interval_minutes": 30, "stale_after_days": 7},
+  "moto_marques": {"scan_interval_minutes": 30, "stale_after_days": 7},
+  "motonil": {"stale_after_days": 3},
+  "anomalies": {"reduction_ratio": 0.5, "id_change_ratio": 0.9, "invalid_ratio": 0.2}
+}

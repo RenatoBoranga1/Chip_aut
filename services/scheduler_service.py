@@ -115,6 +115,9 @@ def serve(
 
                 safe_resume(database)
                 safe_scan(database)
+                from services.partner_inbox_service import poll_inboxes
+
+                poll_inboxes(database, clock=clock)
                 from services.prioritization_service import safe_refresh
 
                 safe_refresh(database, partner_key, "scheduled")

@@ -32,6 +32,8 @@ logs/
 .DS_Store
 Thumbs.db
 reports/
+partner_inbox/
+*.inbox_*.lock
 
 # Local execution coordination
 *.pipeline.lock

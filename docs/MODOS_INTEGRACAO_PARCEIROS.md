@@ -22,3 +22,7 @@ python -m app.scheduler run-now --partner motonil
 ```
 
 Parceiros reúne importação, triagem e histórico. Alertas e Indicadores mostram pendências operacionais separadas da avaliação histórica de fontes. O Assistente de IA consulta esses dados somente em leitura. `MOTO_READ_ONLY=1` permite preview e bloqueia publicação/classificação.
+
+## Preparação assistida — M15
+
+A inbox complementa FILE_IMPORT; não muda seu estado de automação ou dispensa confirmação. O scheduler pode detectar e validar arquivos, mantendo a publicação manual. Saúde e atualização são dimensões diferentes de Operacional. [Operação assistida](OPERACAO_ASSISTIDA_PARCEIROS.md).

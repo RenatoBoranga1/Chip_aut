@@ -20,3 +20,7 @@ python -m app.partners import thomas_motos estoque.csv --confirm --authorized --
 ```
 
 Use `--db` para escolher uma cópia de validação; o padrão é `MOTO_DB` ou `data/coverage.sqlite3`. `--mapping perfil.json` recebe objeto campo interno → nome da coluna. `--mode FULL_SNAPSHOT` seleciona retrato completo. Dry-run não cria banco nem altera dados. Testes geram fixtures sintéticas CSV/XLSX e verificam publicação, matching, revisão, dedupe e rollback.
+
+## Inbox — M15
+
+Arquivos disponibilizados em pasta configurada podem ser detectados e preparados automaticamente. A revisão acrescenta comparação e anomalias, e bloqueia confirmação se hash, revisão ou estoque mudou. A importação confirmada reutiliza este mesmo serviço transacional. [Configuração e uso](INBOX_PARCEIROS.md).
