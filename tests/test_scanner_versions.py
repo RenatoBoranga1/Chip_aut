@@ -269,7 +269,7 @@ def test_migration_from_previous_and_pagination(service, tmp_path):
     assert service.list(1)["versions"] == []
     assert service.detail(2, page=100)["differences"] == []
     with sqlite3.connect(service.database) as c:
-        assert c.execute("select max(version) from schema_version").fetchone()[0] == 14
+        assert c.execute("select max(version) from schema_version").fetchone()[0] == 15
 
 
 @pytest.mark.parametrize(

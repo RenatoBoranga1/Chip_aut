@@ -5,6 +5,7 @@ from dataclasses import replace
 
 from database.repository import encode
 from matching.review_policy import complete_identity, identity
+from partners.integration import operational_entries
 from partners.registry import PartnerRegistry
 from services.dashboard_service import DashboardService
 
@@ -52,7 +53,7 @@ def group_occurrences(rows):
 def cross_partner_opportunities(config, registry=None):
     registry = registry or PartnerRegistry()
     rows = []
-    for entry in registry.list():
+    for entry in operational_entries(registry, config.database):
         groups = DashboardService(replace(config, partner=entry.partner_key)).opportunities()
         rows.extend({**row, "opportunity_status": status} for status, group in groups.items() for row in group)
     return group_occurrences(rows)
@@ -63,7 +64,7 @@ def stock_origins(config, row, registry=None):
     key = grouping_key(row)
     return [
         candidate
-        for entry in registry.list()
+        for entry in operational_entries(registry, config.database)
         for candidate in DashboardService(replace(config, partner=entry.partner_key)).snapshot()["stock"]
         if grouping_key(candidate) == key
     ]

@@ -213,13 +213,28 @@ def main():
 
     try:
         registry = PartnerRegistry()
-        registry.get(config.partner)
+        from database.inventory_repository import read_operations
+        from partners.integration import integration
+
+        def partner_name(key):
+            try:
+                return registry.get(key).display_name
+            except ValueError:
+                return integration(key).display_name
+
+        partner_name(config.partner)
         snapshot = service.snapshot()
         partners = [config.partner] if direct else [p.partner_key for p in registry.list()]
+        if not direct:
+            partners += [
+                p["partner_key"]
+                for p in read_operations(config.database)["partners"]
+                if p["active_ads"] and p["partner_key"] not in partners
+            ]
         partner = st.sidebar.selectbox(
             "Parceiro",
             partners,
-            format_func=lambda v: registry.get(v).display_name,
+            format_func=partner_name,
             index=partners.index(config.partner) if config.partner in partners else 0,
         )
         if partner != config.partner:
@@ -279,8 +294,8 @@ def main():
         with st.expander("Detalhes, cobertura, prioridade e histórico"):
             detail(service, item["id"], include_form=False)
         return
-    stock_page = "Estoque " + registry.get(service.config.partner).display_name
-    st.sidebar.caption("OPERAÇÃO · " + registry.get(service.config.partner).display_name.upper())
+    stock_page = "Estoque " + partner_name(service.config.partner)
+    st.sidebar.caption("OPERAÇÃO · " + partner_name(service.config.partner).upper())
     page = sidebar_navigation(stock_page)
     st.sidebar.caption(
         f"Base {snapshot['base_id']} · {'Somente leitura' if config.read_only else 'Revisões habilitadas'}"
@@ -296,6 +311,9 @@ def main():
         from ui.management_dashboard import management_page
 
         management_page(service)
+        from ui.partner_operations import operational_metrics
+
+        operational_metrics(service.config.database)
         return
     if page == "Assistente de IA":
         from ui.ai_assistant_panel import assistant_page
@@ -314,7 +332,9 @@ def main():
         prioritization_page(service)
         return
     if page == "Parceiros":
-        st.caption("Parceiros configurados. Erros nas últimas 30 execuções; sem execução, erros da última coleta.")
+        st.caption(
+            "Coletores públicos e avaliações históricas. Os canais operacionais de arquivo e triagem estão na seção abaixo."
+        )
         st.table(
             [
                 {
@@ -346,13 +366,22 @@ def main():
         from ui.partner_diagnostics import classification_panel
 
         classification_panel(service.config.database, registry)
+        from ui.partner_operations import operations_page
+
+        operations_page(service)
         return
     if page == "Motos para desenvolvimento":
         development_page(service)
     elif page == "Alertas":
         alert_center(service)
+        from ui.partner_operations import operational_alerts
+
+        operational_alerts(service.config.database)
     elif page == "Atualização automática":
-        automatic_updates(service, table)
+        if service.config.partner == "wr_motos":
+            automatic_updates(service, table)
+        else:
+            st.info("Use Parceiros para importação ou triagem. Automação adicional exige configuração explícita.")
     elif page == "Visão geral":
         cols = st.columns(4)
         cols[0].metric("Anúncios ativos", len(snapshot["stock"]))

@@ -27,6 +27,22 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         config = load_config(args.config)
+        if args.partner in {"thomas_motos", "motonil", "moto_marques"} and args.command != "run-all":
+            from services.partner_operation_scheduler import OperationScheduleRegistry, run_operation, serve_operation
+
+            if args.command == "start":
+                serve_operation(args.db, args.config, partner_key=args.partner)
+                output = {"Agendamento": "Encerrado"}
+            elif args.command == "run-now":
+                output = run_operation(args.db, config, partner_key=args.partner)
+            elif args.command == "status":
+                output = scheduler_status(
+                    args.db, config, partner_key=args.partner, registry=OperationScheduleRegistry()
+                )
+            else:
+                output = read_pipeline(args.db, partner=args.partner)
+            print(json.dumps(output, ensure_ascii=False, indent=2))
+            return int(output.get("status") == "FAILED")
         if args.command != "run-all":
             config = PartnerRegistry().get(args.partner).limits.apply(config)
         if args.command == "validate-config":

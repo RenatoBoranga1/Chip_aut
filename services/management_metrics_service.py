@@ -500,7 +500,12 @@ def fingerprint(path):
 
 class ManagementMetricsService:
     def __init__(self, path, partner="wr_motos", clock=None):
-        PartnerRegistry().get(partner)
+        try:
+            PartnerRegistry().get(partner)
+        except ValueError:
+            from partners.integration import integration
+
+            integration(partner)
         self.path, self.partner = Path(path).resolve(), partner
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.repository = ManagementMetricsRepository(self.path)
@@ -635,7 +640,9 @@ def reports_by_partner(path, start, end, *, filters=None, version=None, registry
     now = (clock or (lambda: datetime.now(timezone.utc)))()
     rows = []
     all_stock = []
-    for entry in registry.list():
+    from partners.integration import operational_entries
+
+    for entry in operational_entries(registry, path):
         report = ManagementMetricsService(path, entry.partner_key, clock=lambda: now).report(
             start, end, filters=filters, version=version
         )

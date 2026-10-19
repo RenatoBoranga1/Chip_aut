@@ -53,7 +53,7 @@ def alternative_sources_panel():
     names = {"thomas_motos": "Thomas Motos", "motonil": "Motonil", "moto_marques": "Moto Marques"}
     st.subheader("Fontes alternativas — avaliação M8.3")
     st.caption(
-        "Evidências salvas em 08/10/2026. Nenhuma fonte aprovada; somente WR permanece ativa. Não há consultas externas nesta tela."
+        "Avaliação histórica de 08/10/2026: somente WR tinha coleta pública aprovada. Os canais operacionais atuais aparecem abaixo. Não há consultas externas nesta tela."
     )
     for source in sources:
         with st.expander(f"{names[source.partner]} — {source.source_provider} — {source.source_id}"):

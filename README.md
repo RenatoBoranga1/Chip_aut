@@ -1154,3 +1154,11 @@ Veja [arquitetura, configuração e limites](docs/ASSISTENTE_IA.md) e [resultado
 ## Milestone 8.3 — fontes alternativas legítimas
 
 Investigadas fontes oficiais de Thomas, Motonil e fontes externas de Moto Marques. Nenhuma atendeu todos os critérios de acesso, tipo e identidade; somente WR permanece ativa. CLI `sources` e `collect --dry-run`, metadados persistidos e painel Parceiros permitem consultar os motivos sem publicar UNKNOWN ou alterar decisões. [Evidências e limites](docs/FONTES_ALTERNATIVAS_PARCEIROS.md).
+
+## Milestone 8.4 — canais operacionais por parceiro
+
+WR mantém coleta pública automática. Thomas e Moto Marques passam a aceitar CSV/XLSX autorizado, com mapeamento, prévia e confirmação humana. Motonil usa staging e só publica motocicletas confirmadas por uma pessoa. Thomas também dispõe de transporte autenticado opcional; nenhum segredo real é necessário para usar a importação manual.
+
+O cadastro operacional distingue habilitação de automação e preserva as avaliações históricas M8.1–M8.3 acima. Importações e triagem alimentam o matching, revisão e consolidação existentes, sem alterar a base V16. Novas ações ficam em **Parceiros**; IA continua somente leitura.
+
+Veja [modos](docs/MODOS_INTEGRACAO_PARCEIROS.md), [importação](docs/IMPORTACAO_ESTOQUE_PARCEIROS.md), [triagem Motonil](docs/TRIAGEM_MOTONIL.md), [Thomas autenticada](docs/THOMAS_AUTHENTICATED_SOURCE.md) e [resultados e pendências](RESULTADOS_MILESTONE_8_4.md).

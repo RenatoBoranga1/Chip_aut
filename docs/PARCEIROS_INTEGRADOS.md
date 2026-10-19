@@ -61,3 +61,11 @@ Os avisos salvos de acesso/classificação aparecem em Parceiros e Alertas, uma 
 ## Fontes alternativas — M8.3
 
 Nenhum candidato adicional habilitado. Metadados em `config/partner_sources.json`; `sources <parceiro>` consulta as fontes salvas; `collect <parceiro> --dry-run` executa somente o diagnóstico limitado permitido, sem banco, publicação ou matching. A WR continua com seu coletor existente. Veja [fontes alternativas e limitações](FONTES_ALTERNATIVAS_PARCEIROS.md).
+
+## Operação atual — M8.4 (09/10/2026)
+
+As tabelas anteriores registram a avaliação histórica de collectors públicos. O cadastro operacional agora complementa esse registro: **WR ativa automática; Thomas ativa manual; Motonil ativa com triagem; Moto Marques ativa manual**. Isso declara capacidades disponíveis, não estoque real já recebido ou aprovação das fontes anteriormente recusadas.
+
+Thomas/Moto Marques usam o mesmo importador CSV/XLSX. Motonil publica apenas itens classificados por uma pessoa como Moto. Thomas tem fonte autenticada opcional; automação depende de autorização, tipo oficial e auditoria explicitamente confirmados. `run-all` ignora arquivos manuais e preserva WR. O Assistente consulta modo, última importação e pendências sem escrever.
+
+Documentação: [modos](MODOS_INTEGRACAO_PARCEIROS.md), [importação](IMPORTACAO_ESTOQUE_PARCEIROS.md), [Motonil](TRIAGEM_MOTONIL.md), [Thomas auth](THOMAS_AUTHENTICATED_SOURCE.md).

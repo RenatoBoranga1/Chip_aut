@@ -39,7 +39,12 @@ class PrioritizationService:
         self.policy = validate_policy(policy) if policy is not None else load_policy()
         self.clock = clock
         self.registry = registry or PartnerRegistry()
-        self.registry.get(config.partner)
+        try:
+            self.registry.get(config.partner)
+        except ValueError:
+            from partners.integration import integration
+
+            integration(config.partner)
 
     def refresh(self, origin="manual"):
         if self.config.read_only:
@@ -347,7 +352,12 @@ def safe_refresh(database, partner=None, origin="scheduled"):
                 return
             active = {r[0]: dict(r) for r in db.execute("SELECT * FROM priority_maintenance")}
         registry = PartnerRegistry()
-        for entry in registry.list(enabled_only=True):
+        from partners.integration import INTEGRATIONS, integration
+
+        entries = registry.list(enabled_only=True)
+        keys = {entry.partner_key for entry in entries}
+        entries += [integration(key) for key in INTEGRATIONS if key not in keys and key != "wr_motos"]
+        for entry in entries:
             key = entry.partner_key
             if key not in active or (partner and key != partner):
                 continue

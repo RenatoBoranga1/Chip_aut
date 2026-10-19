@@ -142,9 +142,16 @@ class AIQueryService:
                 )
             ]
             rows = names or rows
+            from database.inventory_repository import read_operations
+
+            operations = read_operations(self._config.database)
+            operational = {p["partner_key"]: p for p in operations["partners"]}
             for row in rows[:limit]:
+                op = operational.get(row["partner"], {})
                 fact(
-                    f"{row['display_name']}: {row['integration_status']}; habilitado: {'sim' if row['enabled'] else 'não'}. "
+                    f"Operação: {op.get('status', 'Não configurada')}; modo {op.get('integration_mode', 'Não configurado')}; automação {'sim' if op.get('automation_enabled') else 'não'}. "
+                    f"Itens aguardando triagem: {op.get('pending_triage', 0)}; última importação: {shown(op.get('last_import'))}. "
+                    f"Avaliação histórica da coleta pública — {row['display_name']}: {row['integration_status']}; habilitado: {'sim' if row['enabled'] else 'não'}. "
                     f"Motivo: {row['reason'] or 'Integração configurada no registry'}. "
                     f"Última validação manual: {shown(row['last_validation'])}.",
                     "partner_registry",
