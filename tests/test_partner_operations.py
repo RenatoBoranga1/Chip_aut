@@ -520,3 +520,32 @@ def test_run_all_stages_motonil_even_when_public_registry_is_disabled(database, 
     result = multi_partner_service.run_all(database, load_config())
     assert calls == ["motonil"]
     assert result == {"motonil": {"status": "SUCCESS"}}
+
+
+def test_partner_tables_distinguish_operational_mode_and_automation(database, monkeypatch):
+    for key in ("THOMAS_API_TOKEN", "THOMAS_AUTOMATION_ENABLED", "MOTONIL_AUTOMATION_ENABLED"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("MOTO_DB", str(database))
+    monkeypatch.setenv("MOTO_READ_ONLY", "1")
+    before = database.read_bytes()
+    app = AppTest.from_file(str(Path("app/dashboard.py").resolve()), default_timeout=30).run()
+    app.sidebar.radio[0].set_value("Parceiros").run()
+    assert not app.exception
+    table = app.table[0].value.set_index("Chave")
+    expected = {
+        "wr_motos": ("Sim", "Coleta pública"),
+        "thomas_motos": ("Não", "Importação de arquivo"),
+        "motonil": ("Semiautomática", "Coleta para triagem"),
+        "moto_marques": ("Não", "Importação de arquivo"),
+    }
+    assert "Habilitado" not in table.columns
+    for partner, (automation, mode) in expected.items():
+        assert table.loc[partner, "Operacional"] == "Sim"
+        assert table.loc[partner, "Automação"] == automation
+        assert table.loc[partner, "Integração"] == mode
+    assert "Não integrado" not in table["Integração"].tolist()
+    operation_table = next(t.value for t in app.table if "Situação" in t.value.columns)
+    assert operation_table.set_index("Parceiro").loc["Motonil", "Automação"] == "Semiautomática"
+    assert not integration("motonil").automation_enabled
+    assert not integration("thomas_motos").automation_enabled
+    assert database.read_bytes() == before

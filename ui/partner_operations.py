@@ -57,6 +57,15 @@ ALERT_NAMES = {
 }
 
 
+def integration_presentation(partner):
+    entry = integration(partner)
+    return {
+        "Operacional": "Sim" if entry.enabled else "Não",
+        "Automação": "Semiautomática" if entry.requires_human_triage else "Sim" if entry.automation_enabled else "Não",
+        "Integração": MODE_NAMES[entry.integration_mode],
+    }
+
+
 def operational_metrics(database):
     st.subheader("Integrações operacionais")
     values = read_operations(database)["metrics"]
@@ -259,7 +268,7 @@ def operations_page(service):
                 "Parceiro": p["display_name"],
                 "Situação": STATUS[p["status"]],
                 "Modo": MODE_NAMES[p["integration_mode"]],
-                "Automação": "Sim" if p["automation_enabled"] else "Não",
+                "Automação": integration_presentation(p["partner_key"])["Automação"],
                 "Anúncios ativos": p["active_ads"],
                 "Última importação": p["last_import"] or "Nenhuma",
                 "Triagem pendente": p["pending_triage"],

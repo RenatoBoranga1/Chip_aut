@@ -332,18 +332,22 @@ def main():
         prioritization_page(service)
         return
     if page == "Parceiros":
+        from ui.partner_operations import integration_presentation, operations_page
+
         st.caption(
-            "Coletores públicos e avaliações históricas. Os canais operacionais de arquivo e triagem estão na seção abaixo."
+            "Operacional indica um canal disponível. Automação distingue coleta automática, importação manual e coleta com triagem humana. Semiautomática não significa agendamento habilitado."
+        )
+        st.caption(
+            "Datas, método de coleta, categoria e motivos abaixo preservam a avaliação histórica da fonte pública."
         )
         st.table(
             [
                 {
                     "Nome": r["display_name"],
                     "Chave": r["partner"],
-                    "Habilitado": "Sim" if r["enabled"] else "Não",
+                    **integration_presentation(r["partner"]),
                     "Última coleta": r["last_collection"] or "Sem coleta",
-                    "Integração": r["integration_status"],
-                    "Método": r["method"],
+                    "Método da fonte pública": r["method"],
                     "Última validação manual": r["last_validation"] or "Não registrada",
                     "Categoria segura?": "Sim"
                     if r["safe_category"] is True
@@ -351,7 +355,7 @@ def main():
                     if r["safe_category"] is False
                     else "Não avaliada",
                     "Última execução": value(r["status"]) if r["status"] else "Sem execução",
-                    "Motivo": r["reason"],
+                    "Observação da fonte pública": r["reason"],
                     "Novos": r["new"],
                     "Reaparecidos": r["reappeared"],
                     "Desaparecidos": r["disappeared"],
@@ -366,8 +370,6 @@ def main():
         from ui.partner_diagnostics import classification_panel
 
         classification_panel(service.config.database, registry)
-        from ui.partner_operations import operations_page
-
         operations_page(service)
         return
     if page == "Motos para desenvolvimento":
